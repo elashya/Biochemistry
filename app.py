@@ -13,7 +13,7 @@ APP_PIN = st.secrets["APP_PIN"]
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
-st.title("\U0001F9EA AI Biology & Chemistry Tutor")
+st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === PIN Authentication ===
 if "authenticated" not in st.session_state:
@@ -91,10 +91,22 @@ courses = {
 # === Load Progress and Show Stats ===
 if not st.session_state.quiz_started:
     df = load_study_data()
-    df["Course"] = df["Course"].replace({"Intro": "Biology", "Bilology": "Biology"})
-    bio_df = df[df["Course"] == "Biology"]
-    chem_df = df[df["Course"] == "Chemistry"]
 
+    # Normalize course names
+    df["Course"] = df["Course"].str.lower().replace({
+        "intro": "biology",
+        "bilology": "biology"
+    })
+
+    bio_df = df[df["Course"] == "biology"]
+    chem_df = df[df["Course"] == "chemistry"]
+
+    # Failsafe if data is not parsed correctly
+    if bio_df.empty or chem_df.empty:
+        st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
+        st.stop()
+
+    # Fixed start date
     start_date = datetime(2025, 6, 14)
     today = datetime.today()
     days_elapsed = (today - start_date).days
@@ -136,6 +148,7 @@ if not st.session_state.quiz_started:
         chem_date=chem_completion_date.strftime('%A, %d %B %Y')
     ))
 
+    # === UI for starting quiz ===
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
