@@ -2,6 +2,7 @@ import streamlit as st
 from openai import OpenAI
 import time
 import random
+import re
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -33,7 +34,7 @@ def init_session():
     for key in [
         "selected_course", "selected_units", "quiz_started", "question_index",
         "quiz_thread_id", "current_question", "question_history", "score_summary",
-        "ready_for_next_question", "total_questions"
+        "ready_for_next_question", "total_questions", "current_options", "is_mcq"
     ]:
         if key not in st.session_state:
             if key == "question_index":
@@ -42,6 +43,10 @@ def init_session():
                 st.session_state[key] = False
             elif key == "total_questions":
                 st.session_state[key] = 10
+            elif key == "current_options":
+                st.session_state[key] = []
+            elif key == "is_mcq":
+                st.session_state[key] = False
             else:
                 st.session_state[key] = None
 
@@ -107,10 +112,10 @@ Selected Units: {', '.join(st.session_state.selected_units)}
 
 Please generate question {idx+1} out of {total} based on the selected units.
 Structure the question as:
-1. The question clearly numbered (e.g., Q1)
-2. Ensure it mimics real exam difficulty
-3. Avoid overly complex phrasing
-4. Do not give the answer yet
+1. Clearly number the question (e.g., Q1)
+2. Indicate if it's multiple choice (MCQ)
+3. For MCQs, label options A., B., C., D. each on a new line
+4. Do not include answers or hints
 """
 
         with st.spinner("🧠 Tutor is preparing a question..."):
@@ -133,17 +138,32 @@ Structure the question as:
             q_text = messages.data[0].content[0].text.value
             st.session_state.current_question = q_text
 
+            # Check if it's multiple choice and extract options
+            mcq_match = re.findall(r"^[A-Da-d][).]\s.+", q_text, re.MULTILINE)
+            st.session_state.current_options = [opt.strip() for opt in mcq_match]
+            st.session_state.is_mcq = len(mcq_match) >= 2
+
     if st.session_state.current_question:
         st.subheader(f"❓ Question {idx+1} of {total}")
-        st.markdown(st.session_state.current_question)
+        # Display question with line breaks between options
+        question_display = st.session_state.current_question
+        if st.session_state.is_mcq:
+            for opt in st.session_state.current_options:
+                question_display = question_display.replace(opt, f"\n{opt}")
+        st.markdown(question_display)
 
-        user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+        if st.session_state.is_mcq:
+            selected_options = st.multiselect("Select your answer(s):", st.session_state.current_options, key=f"mcq_{idx}")
+            user_answer = "\n".join(selected_options)
+        else:
+            user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+
         if st.button("📤 Submit Answer"):
             with st.spinner("📚 Evaluating your answer..."):
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
                     role="user",
-                    content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease evaluate it by:\n- Saying if it's correct or not\n- Giving a clear explanation\n- One encouragement note"
+                    content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease evaluate it by:\n- Say if it's correct or not\n- Give a clear explanation"
                 )
 
                 run = client.beta.threads.runs.create(
@@ -174,6 +194,8 @@ Structure the question as:
             st.session_state.current_question = None
             st.session_state.ready_for_next_question = False
             st.session_state.question_index += 1
+            st.session_state.current_options = []
+            st.session_state.is_mcq = False
             st.rerun()
 
     # === Final Report ===
@@ -206,14 +228,18 @@ Structure the question as:
             for key in [
                 "selected_course", "selected_units", "quiz_started", "question_index",
                 "quiz_thread_id", "current_question", "question_history", "score_summary",
-                "ready_for_next_question", "total_questions"
+                "ready_for_next_question", "total_questions", "current_options", "is_mcq"
             ]:
-                if key == "question_index":
+                if key in ["question_index"]:
                     st.session_state[key] = 0
-                elif key == "ready_for_next_question":
+                elif key in ["ready_for_next_question"]:
                     st.session_state[key] = False
-                elif key == "total_questions":
+                elif key in ["total_questions"]:
                     st.session_state[key] = 10
+                elif key in ["current_options"]:
+                    st.session_state[key] = []
+                elif key in ["is_mcq"]:
+                    st.session_state[key] = False
                 else:
                     st.session_state[key] = None
             st.rerun()
