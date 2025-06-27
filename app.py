@@ -132,22 +132,15 @@ if not st.session_state.quiz_started:
     # 📊 Progress Text Without Percentages
     st.markdown(f"""
     ### 📊 Here is your expected progress status:
-    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}, {bio_completion_date.strftime('%A, %d %B %Y')}
+    - 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} | Expected Completion Date: {bio_completion_date.strftime('%A, %d %B %Y')}
     """)
     st.progress(int(bio_progress['percent_complete']))
     
     st.markdown(f"""
-    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}, {chem_completion_date.strftime('%A, %d %B %Y')}
+    - ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}  | Expected Completion Date: {chem_completion_date.strftime('%A, %d %B %Y')}
     """)
     st.progress(int(chem_progress['percent_complete']))
-    
-    # 📅 Completion Dates
-    st.markdown(f"""
-    ### 📅 Expected Completion Dates
-    - 🧬 **Biology:** {bio_completion_date.strftime('%A, %d %B %Y')}
-    - ⚗️ **Chemistry:** {chem_completion_date.strftime('%A, %d %B %Y')}
-    """)
-    
+      
 
     # === UI for starting quiz ===
     st.subheader("1️⃣ Choose Your Course")
