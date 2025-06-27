@@ -135,22 +135,27 @@ Structure the question as:
                 run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
 
             messages = client.beta.threads.messages.list(thread_id=thread_id)
-            q_text = messages.data[0].content[0].text.value
-            st.session_state.current_question = q_text
+            full_text = messages.data[0].content[0].text.value
+            st.session_state.current_question = full_text
 
-            # Check if it's multiple choice and extract options
-            mcq_match = re.findall(r"^[A-Da-d][).]\s.+", q_text, re.MULTILINE)
-            st.session_state.current_options = [opt.strip() for opt in mcq_match]
-            st.session_state.is_mcq = len(mcq_match) >= 2
+            # Separate question body and options
+            lines = full_text.splitlines()
+            body_lines = []
+            options = []
+            for line in lines:
+                if re.match(r"^[A-Da-d][).]\s", line):
+                    options.append(line.strip())
+                else:
+                    body_lines.append(line.strip())
+
+            question_body = "\n".join(body_lines).strip()
+            st.session_state.current_options = options
+            st.session_state.is_mcq = len(options) >= 2
+            st.session_state.question_body = question_body
 
     if st.session_state.current_question:
         st.subheader(f"❓ Question {idx+1} of {total}")
-        # Display question with line breaks between options
-        question_display = st.session_state.current_question
-        if st.session_state.is_mcq:
-            for opt in st.session_state.current_options:
-                question_display = question_display.replace(opt, f"\n{opt}")
-        st.markdown(question_display)
+        st.markdown(st.session_state.question_body)
 
         if st.session_state.is_mcq:
             selected_option = st.radio("Select your answer:", st.session_state.current_options, key=f"mcq_{idx}")
@@ -185,7 +190,6 @@ Structure the question as:
                 st.success("🧠 Feedback from Tutor:")
                 st.markdown(feedback)
 
-                # Store feedback and wait for next button
                 st.session_state.question_history.append({
                     "question": st.session_state.current_question,
                     "answer": user_answer,
@@ -196,13 +200,13 @@ Structure the question as:
     if st.session_state.ready_for_next_question:
         if st.button("➡️ Next Question"):
             st.session_state.current_question = None
+            st.session_state.question_body = ""
             st.session_state.ready_for_next_question = False
             st.session_state.question_index += 1
             st.session_state.current_options = []
             st.session_state.is_mcq = False
             st.rerun()
 
-    # === Final Report ===
     elif idx >= total:
         if not st.session_state.score_summary:
             with st.spinner("🧠 Generating final summary..."):
@@ -231,7 +235,7 @@ Structure the question as:
         if st.button("🔁 Start Over"):
             for key in [
                 "selected_course", "selected_units", "quiz_started", "question_index",
-                "quiz_thread_id", "current_question", "question_history", "score_summary",
+                "quiz_thread_id", "current_question", "question_body", "question_history", "score_summary",
                 "ready_for_next_question", "total_questions", "current_options", "is_mcq"
             ]:
                 if key in ["question_index"]:
