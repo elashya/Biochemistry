@@ -106,7 +106,7 @@ if not st.session_state.quiz_started:
     df = load_study_data()
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
-    start_date = datetime(2025, 6, 12)
+    start_date = datetime(2025, 6, 14)
     today = datetime.today()
     bio_progress = get_course_progress(bio_df, start_date, today)
     chem_progress = get_course_progress(chem_df, start_date, today)
