@@ -136,6 +136,12 @@ if not st.session_state.quiz_started:
     - 🧬 **Biology:** {bio_completion_date.strftime('%A, %d %B %Y')}
     - ⚗️ **Chemistry:** {chem_completion_date.strftime('%A, %d %B %Y')}
     """)
+    
+    st.markdown("#### 🧬 Biology Progress")
+    st.progress(int(bio_progress['percent_complete']))
+
+    st.markdown("#### ⚗️ Chemistry Progress")
+    st.progress(int(chem_progress['percent_complete']))
 
     # === UI for starting quiz ===
     st.subheader("1️⃣ Choose Your Course")
