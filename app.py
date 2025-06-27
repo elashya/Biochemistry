@@ -3,7 +3,7 @@ from openai import OpenAI
 import time
 import re
 import pandas as pd
-import datetime
+from datetime import datetime, timedelta
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -101,15 +101,16 @@ if not st.session_state.quiz_started:
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
 
+    # Failsafe if data is not parsed correctly
     if bio_df.empty or chem_df.empty:
         st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
 
     # Fixed start date
-    start_date = datetime.datetime(2025, 6, 14)
-    today = datetime.datetime.today()
+    start_date = datetime(2025, 6, 14)
+    today = datetime.today()
     days_elapsed = (today - start_date).days
-    slides_completed = (days_elapsed // 2) * 7  # One day per subject
+    slides_completed = (days_elapsed // 2) * 7
 
     bio_progress = compute_progress(bio_df, slides_completed)
     chem_progress = compute_progress(chem_df, slides_completed)
@@ -119,9 +120,8 @@ if not st.session_state.quiz_started:
 
     bio_days_needed = (bio_total_slides + 6) // 7
     chem_days_needed = (chem_total_slides + 6) // 7
-
-    bio_completion_date = start_date + datetime.timedelta(days=bio_days_needed * 2)
-    chem_completion_date = start_date + datetime.timedelta(days=chem_days_needed * 2)
+    bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
+    chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
 
     st.markdown(f"""
     ### 👋 Assalamu Alaikum, Sohail!
@@ -157,6 +157,6 @@ if not st.session_state.quiz_started:
             st.session_state.quiz_started = True
             st.session_state.question_index = 0
             st.session_state.question_history = []
-            st.session_state.start_time = datetime.datetime.now()
+            st.session_state.start_time = datetime.now()
             st.session_state.timestamps = []
             st.rerun()
