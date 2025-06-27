@@ -61,7 +61,7 @@ courses = {
     "Chemistry": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Study Plan Progress Tracker ===
+# === Study Plan Progress Tracker (Corrected) ===
 def get_course_progress(course_df, start_date, today):
     if course_df.empty:
         return {
@@ -71,23 +71,29 @@ def get_course_progress(course_df, start_date, today):
             "percent_complete": 0.0
         }
 
+    # Total slides completed based on study days
     days_elapsed = (today - start_date).days
     study_days = days_elapsed // 2
-    slides_covered = study_days * 7
+    slides_completed = study_days * 7
+
     total_slides = course_df["# of slides"].sum()
-    slides_remaining = slides_covered
+    cumulative = 0
 
     for _, row in course_df.iterrows():
         unit_slides = row["# of slides"]
-        if slides_remaining < unit_slides:
+        if slides_completed < cumulative + unit_slides:
+            # We’re inside this unit
+            slide_number = slides_completed - cumulative + 1
+            percent_complete = round((slides_completed / total_slides) * 100, 1)
             return {
                 "unit_number": row["Unit#"],
                 "unit_title": row["Unit Title"],
-                "slide_number": slides_remaining + 1,
-                "percent_complete": min(100, round((slides_covered / total_slides) * 100, 1))
+                "slide_number": slide_number,
+                "percent_complete": min(100.0, percent_complete)
             }
-        slides_remaining -= unit_slides
+        cumulative += unit_slides
 
+    # All units completed
     last_row = course_df.iloc[-1]
     return {
         "unit_number": last_row["Unit#"],
@@ -100,13 +106,12 @@ def get_course_progress(course_df, start_date, today):
 def load_study_data():
     return pd.read_excel("study_plan.xlsx", engine="openpyxl")
 
-# === Main UI Block ===
+# === MAIN SCREEN ===
 if not st.session_state.quiz_started:
     df = load_study_data()
-
-    # Normalize Course Column
     df["Course"] = df["Course"].str.strip().str.lower().replace({"bilology": "biology"})
 
+    # Select start date
     start_date = st.date_input("📅 Select your study start date:", datetime(2025, 6, 14))
     start_date = datetime.combine(start_date, datetime.min.time())
     today = datetime.today()
@@ -114,22 +119,25 @@ if not st.session_state.quiz_started:
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
 
+    # Get progress
     bio_progress = get_course_progress(bio_df, start_date, today)
     chem_progress = get_course_progress(chem_df, start_date, today)
 
+    # Completion dates
     bio_total_slides = bio_df["# of slides"].sum()
     chem_total_slides = chem_df["# of slides"].sum()
-    bio_days_needed = (bio_total_slides + 6) // 7
+    bio_days_needed = (bio_total_slides + 6) // 7  # round up
     chem_days_needed = (chem_total_slides + 6) // 7
     bio_completion_date = start_date + pd.Timedelta(days=bio_days_needed * 2)
     chem_completion_date = start_date + pd.Timedelta(days=chem_days_needed * 2)
 
+    # Show stats
     st.markdown(f"""
     ### 👋 Assalamu Alaikum, Sohail!
 
     Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
 
-    #### 📊 Progress Stats
+    #### 📊 Here is your expected progress status:
     - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
     - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
 
@@ -138,6 +146,7 @@ if not st.session_state.quiz_started:
     - ⚗️ Chemistry: {chem_completion_date.strftime('%A, %d %B %Y')}
     """)
 
+    # Quiz setup
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
@@ -147,7 +156,7 @@ if not st.session_state.quiz_started:
     st.session_state.selected_units = selected_units
 
     st.subheader("3️⃣ Number of Questions")
-    total_qs = st.selectbox("Select total number of questions:", [10, 15, 20, 25, 30], index=1)
+    total_qs = st.selectbox("Select total number of questions:", [3, 10, 15, 20, 25, 30], index=1)
     st.session_state.total_questions = total_qs
 
     if selected_units:
