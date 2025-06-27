@@ -3,7 +3,7 @@ from openai import OpenAI
 import time
 import re
 import pandas as pd
-from datetime import datetime, timedelta
+import datetime
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -120,7 +120,6 @@ if not st.session_state.quiz_started:
 
     bio_days_needed = (bio_total_slides + 6) // 7
     chem_days_needed = (chem_total_slides + 6) // 7
-    print("timedelta =", timedelta, "| type:", type(timedelta))
     bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
     chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
 
