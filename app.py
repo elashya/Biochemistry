@@ -183,7 +183,7 @@ Structure the question as:
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
                     role="user",
-                    content=f"Please summarize the student's performance over {total} questions. Highlight:\n- Strengths\n- Areas to improve\n- Final mark out of {total}\n- Exam advice or study tips"
+                    content=f"Please summarize the student's performance over {total} questions. Highlight:\n- Strengths\n- Areas to improve\n- Final mark out of {total}"
                 )
 
                 run = client.beta.threads.runs.create(
