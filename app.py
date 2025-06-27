@@ -13,7 +13,7 @@ APP_PIN = st.secrets["APP_PIN"]
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
-st.title("🧪 AI Biology & Chemistry Tutor")
+st.title("🔪 AI Biology & Chemistry Tutor")
 
 # === PIN Authentication ===
 if "authenticated" not in st.session_state:
@@ -88,25 +88,17 @@ courses = {
     "Chemistry": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Load Progress and Show Stats ===
+# === Load Progress and Quiz Logic ===
 if not st.session_state.quiz_started:
     df = load_study_data()
-
-    # Normalize course names
-    df["Course"] = df["Course"].str.lower().replace({
-        "intro": "biology",
-        "bilology": "biology"
-    })
-
+    df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
 
-    # Failsafe if data is not parsed correctly
     if bio_df.empty or chem_df.empty:
         st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
 
-    # Fixed start date
     start_date = datetime(2025, 6, 14)
     today = datetime.today()
     days_elapsed = (today - start_date).days
@@ -115,52 +107,22 @@ if not st.session_state.quiz_started:
     bio_progress = compute_progress(bio_df, slides_completed)
     chem_progress = compute_progress(chem_df, slides_completed)
 
-    bio_total_slides = bio_df["# of slides"].sum()
-    chem_total_slides = chem_df["# of slides"].sum()
+    bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
+    chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-    bio_days_needed = (bio_total_slides + 6) / 7
-    chem_days_needed = (chem_total_slides + 6) / 7
-    bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
-    chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
-    
-    # 📊 Progress Text Without Percentages
     st.markdown(f"""
     ### 📊 This is your expected progress point:
-    - 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} 
+    - 🦮 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}
     """)
-    # Biology Progress
-    bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
-    
-    with bio_col1:
-        st.markdown(f"**{bio_progress['percent_complete']}%**")
-    
-    with bio_col2:
-        st.progress(int(bio_progress['percent_complete']))
+    st.progress(int(bio_progress['percent_complete']))
+    st.markdown(f"Expected Completion: {bio_completion_date.strftime('%A, %d %B %Y')}")
 
-    with bio_col3:
-        {bio_completion_date.strftime('%A, %d %B %Y')}
-    
     st.markdown(f"""
     - ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}
     """)
-    # Chemistry Progress: Percentage + Progress Bar on same line
-    chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])  # Adjust ratio as needed
-    
-    with chem_col1:
-        st.markdown(f"**{chem_progress['percent_complete']}%**")
-    
-    with chem_col2:
-        st.progress(int(chem_progress['percent_complete']))
-        
-    with chem_col3:
-        {chem_completion_date.strftime('%A, %d %B %Y')}
+    st.progress(int(chem_progress['percent_complete']))
+    st.markdown(f"Expected Completion: {chem_completion_date.strftime('%A, %d %B %Y')}")
 
-    st.markdown(f"""
-    ### 🎯 What are we revising today to get that A+ ?   
-    """)
-      
-
-    # === UI for starting quiz ===
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
@@ -174,24 +136,146 @@ if not st.session_state.quiz_started:
     st.session_state.total_questions = total_qs
 
     if selected_units:
-        try:
-            if st.button("🚀 Start Quiz"):
-                thread = client.beta.threads.create()
+        if st.button("🚀 Start Quiz"):
+            thread = client.beta.threads.create()
+            st.session_state.quiz_thread_id = thread.id
+            st.session_state.quiz_started = True
+            st.session_state.question_index = 0
+            st.session_state.question_history = []
+            st.session_state.start_time = datetime.now()
+            st.session_state.timestamps = []
+            st.rerun()
 
-                # Create run immediately after creating the thread
-                run = client.beta.threads.runs.create(
-                    thread_id=thread.id,
-                    assistant_id=BIOCHEM_ASSISTANT_ID,
-                    instructions="Start the quiz session."
+# === Quiz Loop ===
+elif st.session_state.quiz_started:
+    idx = st.session_state.question_index
+    thread_id = st.session_state.quiz_thread_id
+    total = st.session_state.total_questions
+
+    if st.session_state.start_time:
+        elapsed = datetime.now() - st.session_state.start_time
+        st.info(f"⏱️ Time Elapsed: **{str(elapsed).split('.')[0]}**")
+
+    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+        prompt = f"""
+You are a kind and smart high school tutor helping a student prepare for real exams.
+
+Course: {st.session_state.selected_course}
+Units: {', '.join(st.session_state.selected_units)}
+Question {idx+1} of {total}
+
+Generate a mix of question types, including:
+- Multiple Choice [MCQ]
+- Short Answer [Short Answer]
+- Fill-in-the-blank [Fill-in-the-Blank]
+
+Clearly label the type in brackets. For MCQ, use format:
+A. Option 1
+B. Option 2
+C. Option 3
+D. Option 4
+
+Do NOT include answers or hints.
+"""
+        with st.spinner("🧠 Tutor is preparing a question..."):
+            client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
+            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=BIOCHEM_ASSISTANT_ID)
+            while run.status != "completed":
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            full_text = messages.data[0].content[0].text.value
+            st.session_state.current_question = full_text
+            st.session_state.timestamps.append(datetime.now())
+
+            is_mcq = "[MCQ]" in full_text
+            st.session_state.is_mcq = is_mcq
+            st.session_state.question_type = "MCQ" if is_mcq else "Short Answer"
+
+            lines = full_text.strip().splitlines()
+            body_lines, options = [], []
+            for line in lines:
+                if re.match(r"^[A-Da-d][).]?\\s", line):
+                    options.append(line.strip())
+                else:
+                    body_lines.append(line.strip())
+            st.session_state.question_body = "\n".join(body_lines).strip()
+            st.session_state.current_options = options
+
+    if st.session_state.current_question:
+        st.subheader(f"❓ Question {idx+1} of {total}")
+        st.markdown(st.session_state.question_body)
+
+        if st.session_state.is_mcq:
+            user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
+        else:
+            user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+
+        if st.button("📤 Submit Answer"):
+            with st.spinner("📚 Evaluating..."):
+                client.beta.threads.messages.create(
+                    thread_id=thread_id,
+                    role="user",
+                    content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease evaluate it clearly: is it correct or not, and explain why."
                 )
+                run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=BIOCHEM_ASSISTANT_ID)
+                while run.status != "completed":
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+                messages = client.beta.threads.messages.list(thread_id=thread_id)
+                feedback = messages.data[0].content[0].text.value
 
-                st.session_state.quiz_thread_id = thread.id
-                st.session_state.quiz_started = True
-                st.session_state.question_index = 0
-                st.session_state.question_history = []
-                st.session_state.start_time = datetime.now()
-                st.session_state.timestamps = []
-                st.rerun()
+                st.success("🧠 Feedback from Tutor")
+                st.markdown(feedback)
 
-        except Exception as e:
-            st.error(f"🚫 Error starting quiz: {str(e)}")
+                st.session_state.question_history.append({
+                    "question": st.session_state.current_question,
+                    "answer": user_answer,
+                    "feedback": feedback
+                })
+
+                st.session_state.ready_for_next_question = True
+
+    if st.session_state.ready_for_next_question:
+        label = "✅ Finish My Quiz" if idx + 1 == total else "➡️ Next Question"
+        if st.button(label):
+            st.session_state.current_question = None
+            st.session_state.question_body = ""
+            st.session_state.current_options = []
+            st.session_state.ready_for_next_question = False
+            st.session_state.question_index += 1
+            st.rerun()
+
+    elif idx >= total:
+        if not st.session_state.score_summary:
+            duration = datetime.now() - st.session_state.start_time
+            seconds = int(duration.total_seconds())
+            avg_time = seconds / total
+            formatted = str(duration).split('.')[0]
+
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=f"""Please summarize the student's performance for {total} questions:
+- Strengths
+- Areas to improve
+- Final mark out of {total}
+Add timing info:
+- Total Time: {formatted}
+- Avg Time per Question: {avg_time:.1f} sec
+"""
+            )
+            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=BIOCHEM_ASSISTANT_ID)
+            while run.status != "completed":
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            st.session_state.score_summary = messages.data[0].content[0].text.value
+
+        st.subheader("📊 Final Tutor Report")
+        st.markdown(st.session_state.score_summary)
+
+        if st.button("🔁 Start Over"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
