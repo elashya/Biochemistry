@@ -150,13 +150,14 @@ if not st.session_state.quiz_started:
     Expected Completion Date: {chem_completion_date.strftime('%A, %d %B %Y')}
     """)
     # Chemistry Progress: Percentage + Progress Bar on same line
-    chem_col1, chem_col2, chem_col3 = st.columns([1, 5])  # Adjust ratio as needed
+    chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])  # Adjust ratio as needed
     
     with chem_col1:
         st.markdown(f"**{chem_progress['percent_complete']}%**")
     
     with chem_col2:
         st.progress(int(chem_progress['percent_complete']))
+        
     with chem_col3:
         {chem_completion_date.strftime('%A, %d %B %Y')}
 
