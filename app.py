@@ -118,8 +118,8 @@ if not st.session_state.quiz_started:
     bio_total_slides = bio_df["# of slides"].sum()
     chem_total_slides = chem_df["# of slides"].sum()
 
-    bio_days_needed = (bio_total_slides + 6) // 7
-    chem_days_needed = (chem_total_slides + 6) // 7
+    bio_days_needed = (bio_total_slides + 6) / 7
+    chem_days_needed = (chem_total_slides + 6) / 7
     bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
     chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
 
