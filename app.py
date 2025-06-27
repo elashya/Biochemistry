@@ -61,92 +61,81 @@ courses = {
     "Chemistry": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Study Plan Progress Tracker (Corrected) ===
+# === Study Plan Progress Tracker ===
 def get_course_progress(course_df, start_date, today):
-    if course_df.empty:
-        return {
-            "unit_number": "-",
-            "unit_title": "No Data",
-            "slide_number": "-",
-            "percent_complete": 0.0
-        }
-
-    # Total slides completed based on study days
     days_elapsed = (today - start_date).days
     study_days = days_elapsed // 2
-    slides_completed = study_days * 7
-
+    slides_covered = study_days * 7
     total_slides = course_df["# of slides"].sum()
-    cumulative = 0
+    slides_remaining = slides_covered
+    progress_info = {}
 
     for _, row in course_df.iterrows():
         unit_slides = row["# of slides"]
-        if slides_completed < cumulative + unit_slides:
-            # We’re inside this unit
-            slide_number = slides_completed - cumulative + 1
-            percent_complete = round((slides_completed / total_slides) * 100, 1)
-            return {
+        if slides_remaining < unit_slides:
+            progress_info = {
                 "unit_number": row["Unit#"],
                 "unit_title": row["Unit Title"],
-                "slide_number": slide_number,
-                "percent_complete": min(100.0, percent_complete)
+                "slide_number": slides_remaining + 1,
+                "percent_complete": min(100, round((slides_covered / total_slides) * 100, 1))
             }
-        cumulative += unit_slides
+            break
+        slides_remaining -= unit_slides
 
-    # All units completed
-    last_row = course_df.iloc[-1]
-    return {
-        "unit_number": last_row["Unit#"],
-        "unit_title": last_row["Unit Title"],
-        "slide_number": last_row["# of slides"],
-        "percent_complete": 100.0
-    }
+    if not progress_info:
+        last_row = course_df.iloc[-1]
+        progress_info = {
+            "unit_number": last_row["Unit#"],
+            "unit_title": last_row["Unit Title"],
+            "slide_number": last_row["# of slides"],
+            "percent_complete": 100.0
+        }
+
+    return progress_info
 
 @st.cache_data
 def load_study_data():
-    return pd.read_excel("study_plan.xlsx", engine="openpyxl")
+    return pd.read_excel("study_plan.xlsx")
 
-# === MAIN SCREEN ===
 if not st.session_state.quiz_started:
     df = load_study_data()
-    df["Course"] = df["Course"].str.strip().str.lower().replace({"bilology": "biology"})
-
-    # Select start date
-    start_date = st.date_input("📅 Select your study start date:", datetime(2025, 6, 14))
-    start_date = datetime.combine(start_date, datetime.min.time())
+    bio_df = df[df["Course"].str.lower().str.contains("bio")]
+    chem_df = df[df["Course"].str.lower() == "chemistry"]
+    start_date = datetime(2025, 6, 12)
     today = datetime.today()
-
-    bio_df = df[df["Course"] == "biology"]
-    chem_df = df[df["Course"] == "chemistry"]
-
-    # Get progress
     bio_progress = get_course_progress(bio_df, start_date, today)
     chem_progress = get_course_progress(chem_df, start_date, today)
 
-    # Completion dates
-    bio_total_slides = bio_df["# of slides"].sum()
-    chem_total_slides = chem_df["# of slides"].sum()
-    bio_days_needed = (bio_total_slides + 6) // 7  # round up
-    chem_days_needed = (chem_total_slides + 6) // 7
-    bio_completion_date = start_date + pd.Timedelta(days=bio_days_needed * 2)
-    chem_completion_date = start_date + pd.Timedelta(days=chem_days_needed * 2)
+    start_date = st.date_input("📅 Select your study start date:", datetime(2025, 6, 14))
+start_date = datetime.combine(start_date, datetime.min.time())
 
-    # Show stats
-    st.markdown(f"""
-    ### 👋 Assalamu Alaikum, Sohail!
+bio_df = df[df["Course"] == "biology"]
+chem_df = df[df["Course"] == "chemistry"]
 
-    Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
+today = datetime.today()
+bio_progress = get_course_progress(bio_df, start_date, today)
+chem_progress = get_course_progress(chem_df, start_date, today)
 
-    #### 📊 Here is your expected progress status:
-    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
-    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
+bio_total_slides = bio_df["# of slides"].sum()
+chem_total_slides = chem_df["# of slides"].sum()
+bio_days_needed = (bio_total_slides + 6) // 7
+chem_days_needed = (chem_total_slides + 6) // 7
+bio_completion_date = start_date + pd.Timedelta(days=bio_days_needed * 2)
+chem_completion_date = start_date + pd.Timedelta(days=chem_days_needed * 2)
+estimated_completion_date = start_date + pd.Timedelta(days=estimated_completion_days)
 
-    📅 **Expected Completion Dates**
-    - 🧬 Biology: {bio_completion_date.strftime('%A, %d %B %Y')}
-    - ⚗️ Chemistry: {chem_completion_date.strftime('%A, %d %B %Y')}
-    """)
+st.markdown(f"""
+### 👋 Assalamu Alaikum, Sohail!
 
-    # Quiz setup
+Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
+
+📊 **Progress Stats:**
+- **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
+- **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
+- 🗓️ **Biology Completion Date:** {bio_completion_date.strftime('%A, %d %B %Y')}
+- 🗓️ **Chemistry Completion Date:** {chem_completion_date.strftime('%A, %d %B %Y')}
+""")
+
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
