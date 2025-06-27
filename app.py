@@ -34,7 +34,8 @@ def init_session():
     for key in [
         "selected_course", "selected_units", "quiz_started", "question_index",
         "quiz_thread_id", "current_question", "question_history", "score_summary",
-        "ready_for_next_question", "total_questions", "current_options", "is_mcq"
+        "ready_for_next_question", "total_questions", "current_options", "is_mcq",
+        "start_time", "end_time"
     ]:
         if key not in st.session_state:
             if key == "question_index":
@@ -94,6 +95,8 @@ if not st.session_state.quiz_started:
             st.session_state.question_index = 0
             st.session_state.score_summary = ""
             st.session_state.ready_for_next_question = False
+            st.session_state.start_time = time.time()
+            st.session_state.end_time = None
             st.rerun()
 
 # === Quiz Loop ===
@@ -183,7 +186,6 @@ Structure the question as:
                 messages = client.beta.threads.messages.list(thread_id=thread_id)
                 feedback = messages.data[0].content[0].text.value
 
-                # Highlight incorrect answer statements in red
                 feedback = re.sub(r"(?i)(The provided answer is incorrect\.)", r":red[\1]", feedback)
 
                 st.markdown("---")
@@ -208,10 +210,17 @@ Structure the question as:
             st.session_state.question_index += 1
             st.session_state.current_options = []
             st.session_state.is_mcq = False
+            if st.session_state.question_index >= total:
+                st.session_state.end_time = time.time()
             st.rerun()
 
     elif idx >= total:
         if not st.session_state.score_summary:
+            duration = st.session_state.end_time - st.session_state.start_time
+            avg_time = duration / total
+            duration_str = time.strftime('%M:%S', time.gmtime(duration))
+            avg_str = time.strftime('%M:%S', time.gmtime(avg_time))
+
             with st.spinner("🧠 Generating final summary..."):
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
@@ -230,6 +239,8 @@ Structure the question as:
 
                 messages = client.beta.threads.messages.list(thread_id=thread_id)
                 summary = messages.data[0].content[0].text.value
+
+                summary += f"\n\n⏱️ Total Time: {duration_str} minutes\n🕓 Average Time per Question: {avg_str} minutes"
                 st.session_state.score_summary = summary
 
         st.subheader("📊 Final Tutor Report")
@@ -239,7 +250,8 @@ Structure the question as:
             for key in [
                 "selected_course", "selected_units", "quiz_started", "question_index",
                 "quiz_thread_id", "current_question", "question_body", "question_history", "score_summary",
-                "ready_for_next_question", "total_questions", "current_options", "is_mcq"
+                "ready_for_next_question", "total_questions", "current_options", "is_mcq",
+                "start_time", "end_time"
             ]:
                 if key in ["question_index"]:
                     st.session_state[key] = 0
