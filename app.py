@@ -125,13 +125,24 @@ if not st.session_state.quiz_started:
 
     st.markdown(f"""
     ### 👋 Assalamu Alaikum, Sohail!
-
+    
     Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
-
+    """)
+    
+    # 📊 Progress Text Without Percentages
+    st.markdown(f"""
     ### 📊 Here is your expected progress status:
-    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
-    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
-
+    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}
+    """)
+    st.progress(int(bio_progress['percent_complete']))
+    
+    st.markdown(f"""
+    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}
+    """)
+    st.progress(int(chem_progress['percent_complete']))
+    
+    # 📅 Completion Dates
+    st.markdown(f"""
     ### 📅 Expected Completion Dates
     - 🧬 **Biology:** {bio_completion_date.strftime('%A, %d %B %Y')}
     - ⚗️ **Chemistry:** {chem_completion_date.strftime('%A, %d %B %Y')}
