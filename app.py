@@ -3,7 +3,7 @@ from openai import OpenAI
 import time
 import re
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -13,7 +13,7 @@ APP_PIN = st.secrets["APP_PIN"]
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
-st.title("🧪 AI Biology & Chemistry Tutor")
+st.title("\U0001F9EA AI Biology & Chemistry Tutor")
 
 # === PIN Authentication ===
 if "authenticated" not in st.session_state:
@@ -55,88 +55,86 @@ def init_session():
 
 init_session()
 
-# === Course & Units ===
+# === Study Plan Progress Tracker ===
+@st.cache_data
+def load_study_data():
+    return pd.read_excel("study_plan.xlsx")
+
+def compute_progress(course_df, slides_completed):
+    total_slides = course_df["# of slides"].sum()
+    cumulative = 0
+    for _, row in course_df.iterrows():
+        if cumulative + row["# of slides"] >= slides_completed:
+            slide_within = slides_completed - cumulative
+            percent = round((slides_completed / total_slides) * 100, 1)
+            return {
+                "unit_number": row["Unit#"],
+                "unit_title": row["Unit Title"],
+                "slide_number": slide_within,
+                "percent_complete": percent
+            }
+        cumulative += row["# of slides"]
+    last = course_df.iloc[-1]
+    return {
+        "unit_number": last["Unit#"],
+        "unit_title": last["Unit Title"],
+        "slide_number": last["# of slides"],
+        "percent_complete": 100.0
+    }
+
+# === Course and Units Definition ===
 courses = {
     "Biology": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
     "Chemistry": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Study Progress Tracker (Corrected) ===
-def get_course_progress(course_df, start_date, today):
-    if course_df.empty:
-        return {
-            "unit_number": "-",
-            "unit_title": "No Data",
-            "slide_number": "-",
-            "percent_complete": 0.0
-        }
-
-    days_elapsed = (today - start_date).days
-    study_days = days_elapsed // 2
-    slides_completed = study_days * 7
-
-    total_slides = course_df["# of slides"].sum()
-    cumulative = 0
-
-    for _, row in course_df.iterrows():
-        unit_slides = row["# of slides"]
-        if slides_completed < cumulative + unit_slides:
-            slide_number = slides_completed - cumulative + 1
-            percent_complete = round((slides_completed / total_slides) * 100, 1)
-            return {
-                "unit_number": row["Unit#"],
-                "unit_title": row["Unit Title"],
-                "slide_number": slide_number,
-                "percent_complete": min(100.0, percent_complete)
-            }
-        cumulative += unit_slides
-
-    last_row = course_df.iloc[-1]
-    return {
-        "unit_number": last_row["Unit#"],
-        "unit_title": last_row["Unit Title"],
-        "slide_number": last_row["# of slides"],
-        "percent_complete": 100.0
-    }
-
-@st.cache_data
-def load_study_data():
-    return pd.read_excel("study_plan.xlsx", engine="openpyxl")
-
-# === MAIN SCREEN ===
+# === Load Progress and Show Stats ===
 if not st.session_state.quiz_started:
     df = load_study_data()
-    df["Course"] = df["Course"].str.strip().str.lower().replace({"bilology": "biology"})
+    df["Course"] = df["Course"].replace({"Intro": "Biology", "Bilology": "Biology"})
+    bio_df = df[df["Course"] == "Biology"]
+    chem_df = df[df["Course"] == "Chemistry"]
 
     start_date = datetime(2025, 6, 14)
     today = datetime.today()
+    days_elapsed = (today - start_date).days
+    slides_completed = (days_elapsed // 2) * 7
 
-    bio_df = df[df["Course"] == "biology"]
-    chem_df = df[df["Course"] == "chemistry"]
-
-    bio_progress = get_course_progress(bio_df, start_date, today)
-    chem_progress = get_course_progress(chem_df, start_date, today)
+    bio_progress = compute_progress(bio_df, slides_completed)
+    chem_progress = compute_progress(chem_df, slides_completed)
 
     bio_total_slides = bio_df["# of slides"].sum()
     chem_total_slides = chem_df["# of slides"].sum()
+
     bio_days_needed = (bio_total_slides + 6) // 7
     chem_days_needed = (chem_total_slides + 6) // 7
-    bio_completion_date = start_date + pd.Timedelta(days=bio_days_needed * 2)
-    chem_completion_date = start_date + pd.Timedelta(days=chem_days_needed * 2)
+    bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
+    chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
 
-    st.markdown(f"""
+    st.markdown("""
     ### 👋 Assalamu Alaikum, Sohail!
 
     Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
 
-    #### 📊 Here is your expected progress status:
-    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
-    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
+    ### 📊 Here is your expected progress status:
+    - **Biology:** Unit {unit_bio} – {title_bio}, Slide {slide_bio} ({pct_bio}%)
+    - **Chemistry:** Unit {unit_chem} – {title_chem}, Slide {slide_chem} ({pct_chem}%)
 
-    #### 📅 Expected Completion Dates
-    - 🧬 **Biology**: {bio_completion_date.strftime('%A, %d %B %Y')}
-    - ⚗️ **Chemistry**: {chem_completion_date.strftime('%A, %d %B %Y')}
-    """)
+    ### 📅 Expected Completion Dates
+    - 🧬 **Biology:** {bio_date}
+    - ⚗️ **Chemistry:** {chem_date}
+    """.format(
+        unit_bio=bio_progress['unit_number'],
+        title_bio=bio_progress['unit_title'],
+        slide_bio=bio_progress['slide_number'],
+        pct_bio=bio_progress['percent_complete'],
+        unit_chem=chem_progress['unit_number'],
+        title_chem=chem_progress['unit_title'],
+        slide_chem=chem_progress['slide_number'],
+        pct_chem=chem_progress['percent_complete'],
+        bio_date=bio_completion_date.strftime('%A, %d %B %Y'),
+        chem_date=chem_completion_date.strftime('%A, %d %B %Y')
+    ))
 
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
