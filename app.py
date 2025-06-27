@@ -79,7 +79,7 @@ if not st.session_state.quiz_started:
     st.session_state.selected_units = selected_units
 
     st.subheader("3️⃣ Number of Questions")
-    total_qs = st.selectbox("Select total number of questions:", [5, 10, 15, 20], index=1)
+    total_qs = st.selectbox("Select total number of questions:", [10, 15, 20], index=1)
     st.session_state.total_questions = total_qs
 
     if selected_units:
