@@ -198,10 +198,12 @@ Only one question per response.
     if st.session_state.current_question:
         st.subheader(f"❓ Question {idx+1} of {total}")
         st.markdown(st.session_state.question_body)
+
         if st.session_state.is_mcq:
             user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
         else:
             user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+
         if st.button("📤 Submit Answer"):
             with st.spinner("📚 Evaluating..."):
                 client.beta.threads.messages.create(
