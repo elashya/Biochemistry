@@ -129,11 +129,13 @@ st.markdown(f"""
 
 Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
 
-📊 **Progress Stats:**
+#### 📊 Progress Stats
 - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
 - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
-- 🗓️ **Biology expected Completion Date:** {bio_completion_date.strftime('%A, %d %B %Y')}
-- 🗓️ **Chemistry expected Completion Date:** {chem_completion_date.strftime('%A, %d %B %Y')}
+
+📅 **Expected Completion Dates**
+- 🧬 Biology: {bio_completion_date.strftime('%A, %d %B %Y')}
+- ⚗️ Chemistry: {chem_completion_date.strftime('%A, %d %B %Y')}
 """)
 
     st.subheader("1️⃣ Choose Your Course")
