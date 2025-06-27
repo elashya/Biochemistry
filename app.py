@@ -143,8 +143,8 @@ if not st.session_state.quiz_started:
     with bio_col2:
         st.progress(int(bio_progress['percent_complete']))
 
-     with bio_col3:
-         {bio_completion_date.strftime('%A, %d %B %Y')}
+    with bio_col3:
+        {bio_completion_date.strftime('%A, %d %B %Y')}
     
     st.markdown(f"""
     - ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}
