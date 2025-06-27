@@ -182,9 +182,8 @@ Only one question per response.
             full_text = messages.data[0].content[0].text.value
             st.session_state.current_question = full_text
             st.session_state.timestamps.append(datetime.now())
-            is_mcq = "[MCQ]" in full_text
-            st.session_state.is_mcq = is_mcq
-            st.session_state.question_type = "MCQ" if is_mcq else "Short Answer"
+
+            # Improved MCQ Detection
             lines = full_text.strip().splitlines()
             body_lines, options = [], []
             for line in lines:
@@ -194,6 +193,9 @@ Only one question per response.
                     body_lines.append(line.strip())
             st.session_state.question_body = "\n".join(body_lines).strip()
             st.session_state.current_options = options
+            is_mcq = len(options) >= 2
+            st.session_state.is_mcq = is_mcq
+            st.session_state.question_type = "MCQ" if is_mcq else "Short Answer"
 
     if st.session_state.current_question:
         st.subheader(f"❓ Question {idx+1} of {total}")
