@@ -176,6 +176,12 @@ if not st.session_state.quiz_started:
     if selected_units:
         if st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
+            # Create run immediately after creating the thread
+            run = client.beta.threads.runs.create(
+                thread_id=thread.id,
+                assistant_id=BIOCHEM_ASSISTANT_ID,
+                instructions="Start the quiz session."
+            )
             st.session_state.quiz_thread_id = thread.id
             st.session_state.quiz_started = True
             st.session_state.question_index = 0
@@ -183,3 +189,5 @@ if not st.session_state.quiz_started:
             st.session_state.start_time = datetime.now()
             st.session_state.timestamps = []
             st.rerun()
+        except Exception as e:
+            st.error(f"🚫 Error starting quiz: {str(e)}")
