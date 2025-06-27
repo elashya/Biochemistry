@@ -174,8 +174,8 @@ if not st.session_state.quiz_started:
     st.session_state.total_questions = total_qs
 
     if selected_units:
-    if st.button("🚀 Start Quiz"):
-        try:
+    try:
+        if st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
 
             # Create run immediately after creating the thread
@@ -193,5 +193,5 @@ if not st.session_state.quiz_started:
             st.session_state.timestamps = []
             st.rerun()
 
-        except Exception as e:
-            st.error(f"🚫 Error starting quiz: {str(e)}")
+    except Exception as e:
+        st.error(f"🚫 Error starting quiz: {str(e)}")
