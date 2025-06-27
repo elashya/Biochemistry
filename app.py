@@ -153,8 +153,8 @@ Structure the question as:
         st.markdown(question_display)
 
         if st.session_state.is_mcq:
-            selected_options = st.multiselect("Select your answer(s):", st.session_state.current_options, key=f"mcq_{idx}")
-            user_answer = "\n".join(selected_options)
+            selected_option = st.radio("Select your answer:", st.session_state.current_options, key=f"mcq_{idx}")
+            user_answer = selected_option
         else:
             user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
 
