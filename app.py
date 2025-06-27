@@ -122,10 +122,6 @@ if not st.session_state.quiz_started:
     chem_days_needed = (chem_total_slides + 6) / 7
     bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
     chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
-
-    st.markdown(f"""
-    ### 👋 Assalamu Alaikum, Sohail!    
-    """)
     
     # 📊 Progress Text Without Percentages
     st.markdown(f"""
@@ -160,7 +156,7 @@ if not st.session_state.quiz_started:
         {chem_completion_date.strftime('%A, %d %B %Y')}
 
     st.markdown(f"""
-    You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills! what are we revising today?
+    ### 🎯 What are we revising today to get that A+ ?   
     """)
       
 
