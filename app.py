@@ -177,6 +177,10 @@ Structure the question as:
 
                 messages = client.beta.threads.messages.list(thread_id=thread_id)
                 feedback = messages.data[0].content[0].text.value
+
+                # Highlight incorrect answer statements in red
+                feedback = re.sub(r"(?i)(The provided answer is incorrect\.)", r":red[\1]", feedback)
+
                 st.markdown("---")
                 st.success("🧠 Feedback from Tutor:")
                 st.markdown(feedback)
