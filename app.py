@@ -107,7 +107,7 @@ if not st.session_state.quiz_started:
         st.stop()
 
     # Fixed start date
-    start_date = datetime(2025, 6, 14)
+    start_date = datetime.datetime(2025, 6, 14)
     today = datetime.today()
     days_elapsed = (today - start_date).days
     slides_completed = (days_elapsed // 2) * 7
