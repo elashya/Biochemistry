@@ -147,3 +147,5 @@ if not st.session_state.quiz_started:
             st.session_state.start_time = datetime.now()
             st.session_state.timestamps = []
             st.rerun()
+
+# ✅ Timer will only appear in final report (code for that will remain as-is below in quiz logic)
