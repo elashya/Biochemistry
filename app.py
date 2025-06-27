@@ -33,13 +33,15 @@ def init_session():
     for key in [
         "selected_course", "selected_units", "quiz_started", "question_index",
         "quiz_thread_id", "current_question", "question_history", "score_summary",
-        "ready_for_next_question"
+        "ready_for_next_question", "total_questions"
     ]:
         if key not in st.session_state:
             if key == "question_index":
                 st.session_state[key] = 0
             elif key == "ready_for_next_question":
                 st.session_state[key] = False
+            elif key == "total_questions":
+                st.session_state[key] = 10
             else:
                 st.session_state[key] = None
 
@@ -58,6 +60,14 @@ courses = {
 }
 
 if not st.session_state.quiz_started:
+    st.markdown("""
+        ### 👋 Assalamu Alaikum, Sohail!
+        
+        Welcome back to your personal revision coach. I know you're aiming for an **A+** — and with focus, effort, and Allah's help, you can absolutely get there!
+
+        🌟 Let's get started — which course are we revising today?
+    """)
+
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
@@ -65,6 +75,10 @@ if not st.session_state.quiz_started:
     st.subheader("2️⃣ Choose Units to Revise")
     selected_units = st.multiselect("Select one or more units:", courses[selected_course])
     st.session_state.selected_units = selected_units
+
+    st.subheader("3️⃣ How many questions do you want to practice?")
+    total_qs = st.selectbox("Select total number of questions:", [5, 10, 15, 20], index=1)
+    st.session_state.total_questions = total_qs
 
     if selected_units:
         if st.button("🚀 Start Quiz"):
@@ -81,16 +95,17 @@ if not st.session_state.quiz_started:
 elif st.session_state.quiz_started:
     idx = st.session_state.question_index
     thread_id = st.session_state.quiz_thread_id
+    total = st.session_state.total_questions
 
     # === Ask New Question ===
-    if idx < 10 and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
         prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for a real exam.
 
 Course: {st.session_state.selected_course}
 Selected Units: {', '.join(st.session_state.selected_units)}
 
-Please generate question {idx+1} out of 10 based on the selected units.
+Please generate question {idx+1} out of {total} based on the selected units.
 Structure the question as:
 1. The question clearly numbered (e.g., Q1)
 2. Ensure it mimics real exam difficulty
@@ -119,7 +134,7 @@ Structure the question as:
             st.session_state.current_question = q_text
 
     if st.session_state.current_question:
-        st.subheader(f"❓ Question {idx+1} of 10")
+        st.subheader(f"❓ Question {idx+1} of {total}")
         st.markdown(st.session_state.current_question)
 
         user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
@@ -162,13 +177,13 @@ Structure the question as:
             st.rerun()
 
     # === Final Report ===
-    elif idx >= 10:
+    elif idx >= total:
         if not st.session_state.score_summary:
             with st.spinner("🧠 Generating final summary..."):
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
                     role="user",
-                    content="Please summarize the student's performance over 10 questions. Highlight:\n- Strengths\n- Areas to improve\n- Final mark out of 10\n- Exam advice or study tips"
+                    content=f"Please summarize the student's performance over {total} questions. Highlight:\n- Strengths\n- Areas to improve\n- Final mark out of {total}\n- Exam advice or study tips"
                 )
 
                 run = client.beta.threads.runs.create(
@@ -191,12 +206,14 @@ Structure the question as:
             for key in [
                 "selected_course", "selected_units", "quiz_started", "question_index",
                 "quiz_thread_id", "current_question", "question_history", "score_summary",
-                "ready_for_next_question"
+                "ready_for_next_question", "total_questions"
             ]:
                 if key == "question_index":
                     st.session_state[key] = 0
                 elif key == "ready_for_next_question":
                     st.session_state[key] = False
+                elif key == "total_questions":
+                    st.session_state[key] = 10
                 else:
                     st.session_state[key] = None
             st.rerun()
