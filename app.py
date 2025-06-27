@@ -135,13 +135,29 @@ if not st.session_state.quiz_started:
     - 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} 
     Expected Completion Date: {bio_completion_date.strftime('%A, %d %B %Y')}
     """)
-    ({bio_progress['percent_complete']}%) st.progress(int(bio_progress['percent_complete']))
+    # Biology Progress
+    bio_col1, bio_col2 = st.columns([1, 5])
+    
+    with bio_col1:
+        st.markdown(f"**{bio_progress['percent_complete']}%**")
+    
+    with bio_col2:
+        st.progress(int(bio_progress['percent_complete']))
+
     
     st.markdown(f"""
     - ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}
     Expected Completion Date: {chem_completion_date.strftime('%A, %d %B %Y')}
     """)
-    ({chem_progress['percent_complete']}%) st.progress(int(chem_progress['percent_complete']))
+    # Chemistry Progress: Percentage + Progress Bar on same line
+    chem_col1, chem_col2 = st.columns([1, 5])  # Adjust ratio as needed
+    
+    with chem_col1:
+        st.markdown(f"**{chem_progress['percent_complete']}%**")
+    
+    with chem_col2:
+        st.progress(int(chem_progress['percent_complete']))
+
       
 
     # === UI for starting quiz ===
