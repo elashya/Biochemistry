@@ -159,7 +159,7 @@ if not st.session_state.quiz_started:
     with chem_col3:
         {chem_completion_date.strftime('%A, %d %B %Y')}
 
-        st.markdown(f"""
+    st.markdown(f"""
     You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills! what are we revising today?
     """)
       
