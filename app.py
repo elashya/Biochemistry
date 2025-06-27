@@ -64,8 +64,8 @@ def compute_progress(course_df, slides_completed):
     total_slides = course_df["# of slides"].sum()
     cumulative = 0
     for _, row in course_df.iterrows():
-        if cumulative + row["# of slides"] >= slides_completed:
-            slide_within = slides_completed - cumulative
+        if cumulative + row["# of slides"] > slides_completed:
+            slide_within = slides_completed - cumulative + 1
             percent = round((slides_completed / total_slides) * 100, 1)
             return {
                 "unit_number": row["Unit#"],
@@ -101,16 +101,15 @@ if not st.session_state.quiz_started:
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
 
-    # Failsafe if data is not parsed correctly
     if bio_df.empty or chem_df.empty:
         st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
 
     # Fixed start date
     start_date = datetime.datetime(2025, 6, 14)
-    today = datetime.today()
+    today = datetime.datetime.today()
     days_elapsed = (today - start_date).days
-    slides_completed = (days_elapsed // 2) * 7
+    slides_completed = (days_elapsed // 2) * 7  # One day per subject
 
     bio_progress = compute_progress(bio_df, slides_completed)
     chem_progress = compute_progress(chem_df, slides_completed)
@@ -120,33 +119,23 @@ if not st.session_state.quiz_started:
 
     bio_days_needed = (bio_total_slides + 6) // 7
     chem_days_needed = (chem_total_slides + 6) // 7
-    bio_completion_date = start_date + timedelta(days=bio_days_needed * 2)
-    chem_completion_date = start_date + timedelta(days=chem_days_needed * 2)
 
-    st.markdown("""
+    bio_completion_date = start_date + datetime.timedelta(days=bio_days_needed * 2)
+    chem_completion_date = start_date + datetime.timedelta(days=chem_days_needed * 2)
+
+    st.markdown(f"""
     ### 👋 Assalamu Alaikum, Sohail!
 
     Welcome back to your personal revision coach. You're on the path to an **A+**, insha’Allah. Let's sharpen your science skills!
 
     ### 📊 Here is your expected progress status:
-    - **Biology:** Unit {unit_bio} – {title_bio}, Slide {slide_bio} ({pct_bio}%)
-    - **Chemistry:** Unit {unit_chem} – {title_chem}, Slide {slide_chem} ({pct_chem}%)
+    - **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} ({bio_progress['percent_complete']}%)
+    - **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']} ({chem_progress['percent_complete']}%)
 
     ### 📅 Expected Completion Dates
-    - 🧬 **Biology:** {bio_date}
-    - ⚗️ **Chemistry:** {chem_date}
-    """.format(
-        unit_bio=bio_progress['unit_number'],
-        title_bio=bio_progress['unit_title'],
-        slide_bio=bio_progress['slide_number'],
-        pct_bio=bio_progress['percent_complete'],
-        unit_chem=chem_progress['unit_number'],
-        title_chem=chem_progress['unit_title'],
-        slide_chem=chem_progress['slide_number'],
-        pct_chem=chem_progress['percent_complete'],
-        bio_date=bio_completion_date.strftime('%A, %d %B %Y'),
-        chem_date=chem_completion_date.strftime('%A, %d %B %Y')
-    ))
+    - 🧬 **Biology:** {bio_completion_date.strftime('%A, %d %B %Y')}
+    - ⚗️ **Chemistry:** {chem_completion_date.strftime('%A, %d %B %Y')}
+    """)
 
     # === UI for starting quiz ===
     st.subheader("1️⃣ Choose Your Course")
@@ -168,6 +157,6 @@ if not st.session_state.quiz_started:
             st.session_state.quiz_started = True
             st.session_state.question_index = 0
             st.session_state.question_history = []
-            st.session_state.start_time = datetime.now()
+            st.session_state.start_time = datetime.datetime.now()
             st.session_state.timestamps = []
             st.rerun()
