@@ -198,7 +198,10 @@ Structure the question as:
                 st.session_state.ready_for_next_question = True
 
     if st.session_state.ready_for_next_question:
-        if st.button("➡️ Next Question"):
+        next_label = "➡️ Next Question"
+        if idx + 1 == total:
+            next_label = "✅ Finish My Quiz"
+        if st.button(next_label):
             st.session_state.current_question = None
             st.session_state.question_body = ""
             st.session_state.ready_for_next_question = False
