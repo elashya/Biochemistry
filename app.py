@@ -125,7 +125,7 @@ if not st.session_state.quiz_started:
     
     # 📊 Progress Text Without Percentages
     st.markdown(f"""
-    ### 📊 Here is your expected progress status:
+    ### 📊 This is your expected progress point:
     - 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']} 
     """)
     # Biology Progress
