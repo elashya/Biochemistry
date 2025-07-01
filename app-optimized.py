@@ -8,26 +8,20 @@ from datetime import datetime, timedelta
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-APP_PIN = st.secrets["APP_PIN"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
-# === PIN Authentication ===
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+# === Streamlit Community Cloud Auth ===
+if st.experimental_user is None or st.experimental_user.email is None:
+    st.warning("🔐 Please sign in to access the app.")
+    st.stop()
 
-if not st.session_state.authenticated:
-    pin = st.text_input("Enter your secure access PIN:", type="password")
-    if pin == APP_PIN:
-        st.session_state.authenticated = True
-        st.success("✅ Access granted.")
-        time.sleep(1)
-        st.rerun()
-    else:
-        st.stop()
+user_email = st.experimental_user.email
+st.session_state.user_id = user_email
+st.success(f"✅ Signed in as: {user_email}")
 
 # === Session Initialization ===
 def init_session():
@@ -121,7 +115,7 @@ if not st.session_state.quiz_started:
         st.progress(int(bio_progress['percent_complete']))
     with bio_col3:
         st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
-    
+
     # CHEMISTRY
     st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
     chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
