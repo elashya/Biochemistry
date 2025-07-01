@@ -4,6 +4,7 @@ import time
 import re
 import pandas as pd
 from datetime import datetime, timedelta
+import hashlib
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -15,8 +16,6 @@ st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === Local Login Auth ===
-import hashlib
-
 USERS = {
     "mohamad": hashlib.sha256("password123".encode()).hexdigest(),
     "abdullah": hashlib.sha256("mysecurepass".encode()).hexdigest(),
@@ -39,7 +38,6 @@ if st.session_state.user_id is None:
         else:
             st.error("❌ Invalid username or password")
     st.stop()
-
 
 # === Session Initialization ===
 def init_session():
