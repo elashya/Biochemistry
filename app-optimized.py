@@ -19,6 +19,7 @@ st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === Local Login Auth ===
+# === Local Login Auth ===
 USERS = {
     "mohamad": hashlib.sha256("M2013".encode()).hexdigest(),
     "sohail": hashlib.sha256("S2009".encode()).hexdigest(),
@@ -32,15 +33,16 @@ if st.session_state.user_id is None:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-if st.button("Login"):
-    hashed = hashlib.sha256(password.encode()).hexdigest()
-    if USERS.get(username) == hashed:
-        st.session_state.user_id = username
-        st.success(f"✅ Welcome, {username}!")
-        st.rerun()
-    else:
-        st.error("❌ Invalid username or password")
-st.stop()
+    if st.button("Login"):
+        hashed = hashlib.sha256(password.encode()).hexdigest()
+        if USERS.get(username) == hashed:
+            st.session_state.user_id = username
+            st.success(f"✅ Welcome, {username}!")
+            st.rerun()
+        else:
+            st.error("❌ Invalid username or password")
+    st.stop()
+
 
  if st.button("Login"):
         hashed = hashlib.sha256(password.encode()).hexdigest()
