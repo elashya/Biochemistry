@@ -32,15 +32,15 @@ if st.session_state.user_id is None:
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-    if st.button("Login"):
-        hashed = hashlib.sha256(password.encode()).hexdigest()
-        if USERS.get(username) == hashed:
-            st.session_state.user_id = username
-            st.success(f"✅ Welcome, {username}!")
-            st.rerun()
-        else:
-            st.error("❌ Invalid username or password")
-    st.stop()
+if st.button("Login"):
+    hashed = hashlib.sha256(password.encode()).hexdigest()
+    if USERS.get(username) == hashed:
+        st.session_state.user_id = username
+        st.success(f"✅ Welcome, {username}!")
+        st.rerun()
+    else:
+        st.error("❌ Invalid username or password")
+st.stop()
 
  if st.button("Login"):
         hashed = hashlib.sha256(password.encode()).hexdigest()
