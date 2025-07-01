@@ -133,6 +133,8 @@ courses = {
 
 # === Main Interface ===
 if not st.session_state.quiz_started:
+    st.markdown(f"## 👤 Welcome, **{st.session_state.user_id}**")
+    df = load_study_data()    
     df = load_study_data()
     df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
