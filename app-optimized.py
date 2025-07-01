@@ -14,14 +14,32 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
-# === Streamlit Community Cloud Auth ===
-if st.user is None or st.user.email is None:
-    st.warning("🔐 Please sign in to access the app.")
+# === Local Login Auth ===
+import hashlib
+
+USERS = {
+    "mohamad": hashlib.sha256("password123".encode()).hexdigest(),
+    "abdullah": hashlib.sha256("mysecurepass".encode()).hexdigest(),
+}
+
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
+
+if st.session_state.user_id is None:
+    st.subheader("🔐 Local Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        hashed = hashlib.sha256(password.encode()).hexdigest()
+        if USERS.get(username) == hashed:
+            st.session_state.user_id = username
+            st.success(f"✅ Welcome, {username}!")
+            st.experimental_rerun()
+        else:
+            st.error("❌ Invalid username or password")
     st.stop()
 
-user_email = st.user.email
-st.session_state.user_id = user_email
-st.success(f"✅ Signed in as: {user_email}")
 
 # === Session Initialization ===
 def init_session():
