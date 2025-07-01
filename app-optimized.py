@@ -18,6 +18,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
+# === Local Login Auth ===
 USERS = {
     "mohamad": hashlib.sha256("M2013".encode()).hexdigest(),
     "sohail": hashlib.sha256("S2009".encode()).hexdigest(),
@@ -40,6 +41,7 @@ if st.session_state.user_id is None:
         else:
             st.error("❌ Invalid username or password")
     st.stop()
+
 
 # === Load User Progress ===
 def load_user_progress(user_id):
