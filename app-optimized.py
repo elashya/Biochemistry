@@ -17,15 +17,15 @@ st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === Local Login Auth ===
 USERS = {
-    "mohamad": hashlib.sha256("password123".encode()).hexdigest(),
-    "abdullah": hashlib.sha256("mysecurepass".encode()).hexdigest(),
+    "mohamad": hashlib.sha256("M2013".encode()).hexdigest(),
+    "sohail": hashlib.sha256("S2009".encode()).hexdigest(),
 }
 
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
 if st.session_state.user_id is None:
-    st.subheader("🔐 Local Login")
+    st.subheader("🔐 Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
