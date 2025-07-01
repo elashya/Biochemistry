@@ -37,7 +37,7 @@ if st.session_state.user_id is None:
         if USERS.get(username) == hashed:
             st.session_state.user_id = username
             st.success(f"✅ Welcome, {username}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("❌ Invalid username or password")
     st.stop()
