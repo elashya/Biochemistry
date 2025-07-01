@@ -14,13 +14,12 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
-# === Streamlit Cloud User Auth (safe and forward-compatible) ===
-try:
-    user_email = st.user.email
-except AttributeError:
+# === Streamlit Community Cloud Auth ===
+if st.user is None or st.user.email is None:
     st.warning("🔐 Please sign in to access the app.")
     st.stop()
 
+user_email = st.user.email
 st.session_state.user_id = user_email
 st.success(f"✅ Signed in as: {user_email}")
 
