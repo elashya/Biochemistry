@@ -18,8 +18,6 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
-# === Local Login Auth ===
-# === Local Login Auth ===
 USERS = {
     "mohamad": hashlib.sha256("M2013".encode()).hexdigest(),
     "sohail": hashlib.sha256("S2009".encode()).hexdigest(),
@@ -43,16 +41,13 @@ if st.session_state.user_id is None:
             st.error("❌ Invalid username or password")
     st.stop()
 
-
- if st.button("Login"):
-        hashed = hashlib.sha256(password.encode()).hexdigest()
-        if USERS.get(username) == hashed:
-            st.session_state.user_id = username
-            st.success(f"✅ Welcome, {username}!")
-            st.experimental_rerun()
-        else:
-            st.error("❌ Invalid username or password")
-    st.stop()
+# === Load User Progress ===
+def load_user_progress(user_id):
+    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            return json.load(f)
+    return None
 
 # === Load User Progress ===
 def load_user_progress(user_id):
