@@ -5,10 +5,13 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 import hashlib
+import os
+import json
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+DATA_DIR = "user_data"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -25,7 +28,7 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 
 if st.session_state.user_id is None:
-    st.subheader("🔐 Login")
+    st.subheader("🔐 Local Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
@@ -38,6 +41,21 @@ if st.session_state.user_id is None:
         else:
             st.error("❌ Invalid username or password")
     st.stop()
+
+# === Load User Progress ===
+def load_user_progress(user_id):
+    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            return json.load(f)
+    return None
+
+# === Save User Progress ===
+def save_user_progress(user_id, data):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    with open(filepath, "w") as f:
+        json.dump(data, f, indent=2)
 
 # === Session Initialization ===
 def init_session():
@@ -64,6 +82,12 @@ def init_session():
             st.session_state[key] = default
 
 init_session()
+
+# === Show Previous Progress (if any) ===
+user_data = load_user_progress(st.session_state.user_id)
+if user_data:
+    st.markdown("📖 **Previous Quiz Summary:**")
+    st.write(user_data.get("summary", "No summary available."))
 
 # === Study Plan Progress Tracker ===
 @st.cache_data
@@ -165,6 +189,20 @@ if not st.session_state.quiz_started:
             st.session_state.start_time = datetime.now()
             st.session_state.timestamps = []
             st.rerun()
+
+# === Save Progress After Quiz ===
+if st.session_state.quiz_started and st.session_state.score_summary:
+    save_user_progress(
+        st.session_state.user_id,
+        {
+            "quiz_date": datetime.now().isoformat(),
+            "course": st.session_state.selected_course,
+            "units": st.session_state.selected_units,
+            "total_questions": st.session_state.total_questions,
+            "history": st.session_state.question_history,
+            "summary": st.session_state.score_summary,
+        }
+    )
 
 # === Quiz Loop ===
 elif st.session_state.quiz_started:
