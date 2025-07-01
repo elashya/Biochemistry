@@ -15,7 +15,7 @@ st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
 st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === Streamlit Community Cloud Auth ===
-if st.user is None or st.user.email_address is None:
+if not hasattr(st, "user") or st.user is None or st.user.email is None:
     st.warning("🔐 Please sign in to access the app.")
     st.stop()
 
