@@ -218,6 +218,59 @@ if not st.session_state.quiz_started:
         st.rerun()
 
 
+
+# === Generate Master Performance Summary ===
+def generate_master_performance(user_id):
+    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    if not os.path.exists(filepath):
+        return None
+    with open(filepath, "r") as f:
+        data = json.load(f)
+
+    summary_counts = {}
+    all_units = []
+
+    for entry in data.get("quiz_history", []):
+        units = entry.get("units", [])
+        mark = entry.get("final_mark", "N/A")
+        if isinstance(units, list):
+            for unit in units:
+                summary_counts.setdefault(unit, {"attempts": 0, "total": 0})
+                summary_counts[unit]["attempts"] += 1
+                try:
+                    score, total = map(int, re.findall(r"(\d+)", mark))
+                    summary_counts[unit]["total"] += score
+                except:
+                    pass
+                all_units.append(unit)
+
+    if not summary_counts:
+        return None
+
+    insights = "### 📈 Cumulative Performance Summary\n"
+    insights += f"- Total Quizzes Taken: {len(data.get('quiz_history', []))}\n\n"
+
+    for unit, stats in summary_counts.items():
+        avg_score = stats["total"] / stats["attempts"]
+        insights += f"- **{unit}**: Attempted {stats['attempts']} times, Avg Score: {avg_score:.1f}\n"
+
+    # Optional: Chart
+    try:
+        st.markdown("#### 📊 Average Score per Unit")
+        df_chart = pd.DataFrame({
+            "Unit": list(summary_counts.keys()),
+            "Avg Score": [v["total"] / v["attempts"] for v in summary_counts.values()]
+        })
+        fig, ax = plt.subplots()
+        ax.bar(df_chart["Unit"], df_chart["Avg Score"], color="skyblue")
+        ax.set_ylabel("Avg Score")
+        ax.set_title("Avg Performance by Unit")
+        st.pyplot(fig)
+    except:
+        pass
+
+    return insights
+
 # === Save Progress After Quiz ===
 if st.session_state.quiz_started and st.session_state.score_summary:
     duration = datetime.now() - st.session_state.start_time
@@ -242,6 +295,11 @@ if st.session_state.quiz_started and st.session_state.score_summary:
         quiz_record["final_mark"] = "N/A"
 
     save_user_progress(st.session_state.user_id, quiz_record)
+
+    # Update master performance after saving quiz
+    cumulative_summary = generate_master_performance(st.session_state.user_id)
+    st.session_state.master_performance_summary = cumulative_summary
+
 
     cumulative_summary = generate_master_performance(st.session_state.user_id)
     st.session_state.master_performance_summary = cumulative_summary
@@ -410,4 +468,3 @@ Add timing info:
             st.session_state["user_id"] = user_id
             st.session_state["start_over"] = False
             st.rerun()
-
