@@ -96,7 +96,7 @@ if user_data and "quiz_history" in user_data:
     df_history = pd.DataFrame(user_data["quiz_history"])
     df_history["quiz_date"] = pd.to_datetime(df_history["quiz_date"])
     df_history = df_history.sort_values(by="quiz_date", ascending=False)
-    df_display = df_history[["quiz_date", "course", "units", "total_questions", "time_taken", "final_mark"]]
+    df_display = df_history[["quiz_date", "course", "units", "time_taken", "final_mark"]]
     df_display.columns = ["Date", "Course", "Units", "Time", "Mark"]
     st.dataframe(df_display)
 
