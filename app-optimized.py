@@ -48,7 +48,7 @@ def load_user_progress(user_id):
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             return json.load(f)
-    return None
+    return {"quiz_history": []}
 
 # === Save User Progress ===
 def save_user_progress(user_id, quiz_data):
@@ -92,7 +92,7 @@ init_session()
 # === Load and Show Quiz History ===
 user_data = load_user_progress(st.session_state.user_id)
 with st.expander("🗂️ Your Quiz History", expanded=False):
-    df = pd.DataFrame(user_data.get("history", [])[::-1])
+    df = pd.DataFrame(user_data.get("quiz_history", [])[::-1])
     if not df.empty:
         df = df[["quiz_date", "course", "units", "time_taken", "final_mark"]]
         df.columns = ["Date", "Course", "Units", "Time", "Mark"]
@@ -155,27 +155,26 @@ if not st.session_state.quiz_started:
     bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-with st.expander("📊 This is your expected progress point:", expanded=True):
-    # BIOLOGY
-    st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
-    bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
-    with bio_col1:
-        st.markdown(f"**{bio_progress['percent_complete']}%**")
-    with bio_col2:
-        st.progress(int(bio_progress['percent_complete']))
-    with bio_col3:
-        st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
+    with st.expander("📊 This is your expected progress point:", expanded=True):
+        # BIOLOGY
+        st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
+        bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
+        with bio_col1:
+            st.markdown(f"**{bio_progress['percent_complete']}%**")
+        with bio_col2:
+            st.progress(int(bio_progress['percent_complete']))
+        with bio_col3:
+            st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
 
-    # CHEMISTRY
-    st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
-    chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
-    with chem_col1:
-        st.markdown(f"**{chem_progress['percent_complete']}%**")
-    with chem_col2:
-        st.progress(int(chem_progress['percent_complete']))
-    with chem_col3:
-        st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
-
+        # CHEMISTRY
+        st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
+        chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
+        with chem_col1:
+            st.markdown(f"**{chem_progress['percent_complete']}%**")
+        with chem_col2:
+            st.progress(int(chem_progress['percent_complete']))
+        with chem_col3:
+            st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
 
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
@@ -219,7 +218,7 @@ if st.session_state.quiz_started and st.session_state.score_summary:
         quiz_record["final_mark"] = f"{match.group(1)}/{match.group(2)}"
     else:
         quiz_record["final_mark"] = "N/A"
-    
+
     save_user_progress(st.session_state.user_id, quiz_record)
 
 
