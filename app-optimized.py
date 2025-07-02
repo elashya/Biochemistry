@@ -160,7 +160,7 @@ if not st.session_state.quiz_started:
     bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-    with st.expander("📊 This is your expected progress point:", expanded=True):
+    with st.expander("📊 This is your expected progress point:", expanded=False):
         st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
         bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
         with bio_col1:
