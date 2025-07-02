@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import hashlib
 import os
 import json
+import matplotlib.pyplot as plt
 
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
@@ -41,24 +42,25 @@ if st.session_state.user_id is None:
             st.error("❌ Invalid username or password")
     st.stop()
 
-# === Load User Progress ===
+# === Load/Save User Progress ===
 def load_user_progress(user_id):
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             return json.load(f)
-    return {"quiz_history": []}
+    return {"quiz_history": [], "master_report": ""}
 
-# === Save User Progress ===
-def save_user_progress(user_id, quiz_data):
+def save_user_progress(user_id, quiz_data, master_report=None):
     os.makedirs(DATA_DIR, exist_ok=True)
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
     if os.path.exists(filepath):
         with open(filepath, "r") as f:
             data = json.load(f)
     else:
-        data = {"quiz_history": []}
+        data = {"quiz_history": [], "master_report": ""}
     data["quiz_history"].append(quiz_data)
+    if master_report:
+        data["master_report"] = master_report
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)
 
@@ -121,15 +123,12 @@ courses = {
     "Chemistry": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Main Interface ===
+# === Main Interface (Pre-Quiz) ===
 if not st.session_state.quiz_started:
-    # 1. Title
     st.title("🧪 AI Biology & Chemistry Tutor")
-
-    # 2. Welcome Message
     st.markdown(f"### 👤 Welcome, **{st.session_state.user_id}**")
 
-    # 3. Quiz History
+    # 1. Quiz History
     user_data = load_user_progress(st.session_state.user_id)
     with st.expander("🗂️ Your Quiz History", expanded=False):
         df = pd.DataFrame(user_data.get("quiz_history", [])[::-1])
@@ -139,7 +138,7 @@ if not st.session_state.quiz_started:
             df.index.name = "#"
             st.dataframe(df, use_container_width=True)
 
-    # 4. Study Plan and Expected Progress
+    # 2. Study Plan & Progress
     df = load_study_data()
     df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
@@ -178,6 +177,15 @@ if not st.session_state.quiz_started:
             st.progress(int(chem_progress['percent_complete']))
         with chem_col3:
             st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
+
+    # 3. Cumulative Master Performance Report
+    with st.expander("🧠 Cumulative Performance Insights", expanded=False):
+        master_report = user_data.get("master_report", "")
+        if master_report:
+            st.markdown(master_report)
+        else:
+            st.info("📌 No cumulative performance insights yet. Complete a quiz to generate one.")
+
 
     # 5. Course + Units + Quiz Config
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
