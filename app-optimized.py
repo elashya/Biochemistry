@@ -41,7 +41,16 @@ if st.session_state.user_id is None:
         else:
             st.error("❌ Invalid username or password")
     st.stop()
+    
+st.markdown("### 🗃️ View User Data File")
+selected_user_file = st.selectbox("Choose user file to view:", os.listdir("user_data"))
 
+if selected_user_file.endswith(".json"):
+    filepath = os.path.join("user_data", selected_user_file)
+    with open(filepath, "r") as f:
+        content = json.load(f)
+    st.json(content)
+    
 # === Load/Save User Progress ===
 def load_user_progress(user_id):
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
