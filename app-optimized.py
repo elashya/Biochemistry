@@ -243,6 +243,9 @@ if st.session_state.quiz_started and st.session_state.score_summary:
 
     save_user_progress(st.session_state.user_id, quiz_record)
 
+    cumulative_summary = generate_master_performance(st.session_state.user_id)
+    st.session_state.master_performance_summary = cumulative_summary
+
     # === Update master performance summary ===
     user_data_path = f"user_data/{st.session_state.user_id}.json"
     if os.path.exists(user_data_path):
