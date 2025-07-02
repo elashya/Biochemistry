@@ -243,6 +243,35 @@ if st.session_state.quiz_started and st.session_state.score_summary:
 
     save_user_progress(st.session_state.user_id, quiz_record)
 
+    # === Update master performance summary ===
+    user_data_path = f"user_data/{st.session_state.user_id}.json"
+    if os.path.exists(user_data_path):
+        with open(user_data_path, "r") as f:
+            user_data = json.load(f)
+
+        if "quiz_history" in user_data and len(user_data["quiz_history"]) >= 3:
+            history_for_prompt = "\n\n".join([entry["summary"] for entry in user_data["quiz_history"]])
+            perf_prompt = f"""Based on the following past quiz performance summaries, generate a master performance report for Sohail that includes:
+- Key strengths (tagged by topic)
+- Areas to improve (grouped by patterns or repetition)
+- Suggested study strategy moving forward
+- Motivational tone
+
+Past Summaries:
+{history_for_prompt}
+"""
+
+            perf_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a wise and encouraging high school science tutor."},
+                    {"role": "user", "content": perf_prompt}
+                ]
+            )
+
+            user_data["master_performance_summary"] = perf_response.choices[0].message.content
+            with open(user_data_path, "w") as f:
+                json.dump(user_data, f, indent=2)
 
 # === Quiz Loop ===
 elif st.session_state.quiz_started:
