@@ -134,14 +134,28 @@ courses = {
 
 # === Main Interface ===
 if not st.session_state.quiz_started:
-    st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
+    # 1. Title
     st.title("🧪 AI Biology & Chemistry Tutor")
-    st.markdown(f"## 👤 Welcome, **{st.session_state.user_id}**")
+
+    # 2. Welcome Message
+    st.markdown(f"### 👤 Welcome, **{st.session_state.user_id}**")
+
+    # 3. Quiz History
+    user_data = load_user_progress(st.session_state.user_id)
+    with st.expander("🗂️ Your Quiz History", expanded=False):
+        df = pd.DataFrame(user_data.get("quiz_history", [])[::-1])
+        if not df.empty:
+            df = df[["quiz_date", "course", "units", "time_taken", "final_mark"]]
+            df.columns = ["Date", "Course", "Units", "Time", "Mark"]
+            df.index.name = "#"
+            st.dataframe(df, use_container_width=True)
+
+    # 4. Study Plan and Expected Progress
     df = load_study_data()
     df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
-  
+
     if bio_df.empty or chem_df.empty:
         st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
@@ -157,7 +171,7 @@ if not st.session_state.quiz_started:
     bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-    with st.expander("📊 This is your expected progress point:", expanded=False):
+    with st.expander("📊 This is your expected progress point:", expanded=True):
         # BIOLOGY
         st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
         bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
@@ -178,6 +192,7 @@ if not st.session_state.quiz_started:
         with chem_col3:
             st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
 
+    # Now continue with course selection, etc.
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
