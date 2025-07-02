@@ -16,7 +16,6 @@ DATA_DIR = "user_data"
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
-st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === Local Login Auth ===
 USERS = {
@@ -88,16 +87,6 @@ def init_session():
             st.session_state[key] = default
 
 init_session()
-
-# === Load and Show Quiz History ===
-user_data = load_user_progress(st.session_state.user_id)
-with st.expander("🗂️ Your Quiz History", expanded=False):
-    df = pd.DataFrame(user_data.get("quiz_history", [])[::-1])
-    if not df.empty:
-        df = df[["quiz_date", "course", "units", "time_taken", "final_mark"]]
-        df.columns = ["Date", "Course", "Units", "Time", "Mark"]
-        df.index.name = "#"
-        st.dataframe(df, use_container_width=True)
 
 # === Study Plan Progress Tracker ===
 @st.cache_data
@@ -172,7 +161,6 @@ if not st.session_state.quiz_started:
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
     with st.expander("📊 This is your expected progress point:", expanded=True):
-        # BIOLOGY
         st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
         bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
         with bio_col1:
@@ -182,7 +170,6 @@ if not st.session_state.quiz_started:
         with bio_col3:
             st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
 
-        # CHEMISTRY
         st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
         chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
         with chem_col1:
@@ -192,7 +179,7 @@ if not st.session_state.quiz_started:
         with chem_col3:
             st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
 
-    # Now continue with course selection, etc.
+    # 5. Course + Units + Quiz Config
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
@@ -212,6 +199,7 @@ if not st.session_state.quiz_started:
         st.session_state.start_time = datetime.now()
         st.session_state.timestamps = []
         st.rerun()
+
 
 # === Save Progress After Quiz ===
 if st.session_state.quiz_started and st.session_state.score_summary:
