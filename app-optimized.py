@@ -42,15 +42,6 @@ if st.session_state.user_id is None:
             st.error("❌ Invalid username or password")
     st.stop()
 
-
-# === Load User Progress ===
-def load_user_progress(user_id):
-    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
-    if os.path.exists(filepath):
-        with open(filepath, "r") as f:
-            return json.load(f)
-    return None
-
 # === Load User Progress ===
 def load_user_progress(user_id):
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
@@ -60,9 +51,15 @@ def load_user_progress(user_id):
     return None
 
 # === Save User Progress ===
-def save_user_progress(user_id, data):
+def save_user_progress(user_id, quiz_data):
     os.makedirs(DATA_DIR, exist_ok=True)
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            data = json.load(f)
+    else:
+        data = {"quiz_history": []}
+    data["quiz_history"].append(quiz_data)
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)
 
@@ -92,11 +89,16 @@ def init_session():
 
 init_session()
 
-# === Show Previous Progress (if any) ===
+# === Load and Show Quiz History ===
 user_data = load_user_progress(st.session_state.user_id)
-if user_data:
-    st.markdown("📖 **Previous Quiz Summary:**")
-    st.write(user_data.get("summary", "No summary available."))
+if user_data and "quiz_history" in user_data:
+    st.markdown("## 🗂️ Your Quiz History")
+    df_history = pd.DataFrame(user_data["quiz_history"])
+    df_history["quiz_date"] = pd.to_datetime(df_history["quiz_date"])
+    df_history = df_history.sort_values(by="quiz_date", ascending=False)
+    df_display = df_history[["quiz_date", "course", "units", "total_questions", "time_taken", "final_mark"]]
+    df_display.columns = ["Date", "Course", "Units", "Questions", "Time", "Mark"]
+    st.dataframe(df_display)
 
 # === Study Plan Progress Tracker ===
 @st.cache_data
@@ -134,7 +136,6 @@ courses = {
 # === Main Interface ===
 if not st.session_state.quiz_started:
     st.markdown(f"## 👤 Welcome, **{st.session_state.user_id}**")
-    df = load_study_data()    
     df = load_study_data()
     df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
@@ -157,49 +158,58 @@ if not st.session_state.quiz_started:
 
     st.markdown("### 📊 This is your expected progress point:")
 
-    # BIOLOGY
     st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
-    bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
-    with bio_col1:
-        st.markdown(f"**{bio_progress['percent_complete']}%**")
-    with bio_col2:
-        st.progress(int(bio_progress['percent_complete']))
-    with bio_col3:
-        st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
+    st.progress(int(bio_progress['percent_complete']))
+    st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
 
-    # CHEMISTRY
     st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
-    chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
-    with chem_col1:
-        st.markdown(f"**{chem_progress['percent_complete']}%**")
-    with chem_col2:
-        st.progress(int(chem_progress['percent_complete']))
-    with chem_col3:
-        st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
+    st.progress(int(chem_progress['percent_complete']))
+    st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
 
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
-    st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
 
-    st.subheader("2️⃣ Choose Units to Revise")
     selected_units = st.multiselect("Select one or more units:", courses[selected_course])
     st.session_state.selected_units = selected_units
 
-    st.subheader("3️⃣ Number of Questions")
     total_qs = st.selectbox("Select total number of questions:", [3, 10, 15, 20, 25, 30], index=1)
     st.session_state.total_questions = total_qs
 
-    if selected_units:
-        if st.button("🚀 Start Quiz"):
-            thread = client.beta.threads.create()
-            st.session_state.quiz_thread_id = thread.id
-            st.session_state.quiz_started = True
-            st.session_state.question_index = 0
-            st.session_state.question_history = []
-            st.session_state.start_time = datetime.now()
-            st.session_state.timestamps = []
-            st.rerun()
+    if selected_units and st.button("🚀 Start Quiz"):
+        thread = client.beta.threads.create()
+        st.session_state.quiz_thread_id = thread.id
+        st.session_state.quiz_started = True
+        st.session_state.question_index = 0
+        st.session_state.question_history = []
+        st.session_state.start_time = datetime.now()
+        st.session_state.timestamps = []
+        st.rerun()
+
+# === Save Progress After Quiz ===
+if st.session_state.quiz_started and st.session_state.score_summary:
+    duration = datetime.now() - st.session_state.start_time
+    seconds = int(duration.total_seconds())
+    avg_time = seconds / st.session_state.total_questions
+    formatted = str(duration).split('.')[0]
+
+    quiz_record = {
+        "quiz_date": datetime.now().isoformat(),
+        "course": st.session_state.selected_course,
+        "units": st.session_state.selected_units,
+        "total_questions": st.session_state.total_questions,
+        "time_taken": formatted,
+        "avg_time_sec": round(avg_time, 1),
+        "summary": st.session_state.score_summary,
+    }
+
+    match = re.search(r"mark out of (\d+)[^\d]*(\d+)", st.session_state.score_summary)
+    if match:
+        quiz_record["final_mark"] = f"{match.group(2)}/{match.group(1)}"
+    else:
+        quiz_record["final_mark"] = "N/A"
+
+    save_user_progress(st.session_state.user_id, quiz_record)
 
 # === Save Progress After Quiz ===
 if st.session_state.quiz_started and st.session_state.score_summary:
