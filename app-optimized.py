@@ -211,19 +211,6 @@ if st.session_state.quiz_started and st.session_state.score_summary:
 
     save_user_progress(st.session_state.user_id, quiz_record)
 
-# === Save Progress After Quiz ===
-if st.session_state.quiz_started and st.session_state.score_summary:
-    save_user_progress(
-        st.session_state.user_id,
-        {
-            "quiz_date": datetime.now().isoformat(),
-            "course": st.session_state.selected_course,
-            "units": st.session_state.selected_units,
-            "total_questions": st.session_state.total_questions,
-            "history": st.session_state.question_history,
-            "summary": st.session_state.score_summary,
-        }
-    )
 
 # === Quiz Loop ===
 elif st.session_state.quiz_started:
