@@ -203,12 +203,12 @@ if st.session_state.quiz_started and st.session_state.score_summary:
         "summary": st.session_state.score_summary,
     }
 
-    match = re.search(r"mark out of (\d+)[^\d]*(\d+)", st.session_state.score_summary)
+    match = re.search(r"(\d+)\s*(?:/|out of)\s*(\d+)", st.session_state.score_summary, re.IGNORECASE)
     if match:
-        quiz_record["final_mark"] = f"{match.group(2)}/{match.group(1)}"
+        quiz_record["final_mark"] = f"{match.group(1)}/{match.group(2)}"
     else:
         quiz_record["final_mark"] = "N/A"
-
+    
     save_user_progress(st.session_state.user_id, quiz_record)
 
 
