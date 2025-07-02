@@ -134,12 +134,14 @@ courses = {
 
 # === Main Interface ===
 if not st.session_state.quiz_started:
+    st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
+    st.title("🧪 AI Biology & Chemistry Tutor")
     st.markdown(f"## 👤 Welcome, **{st.session_state.user_id}**")
     df = load_study_data()
     df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
     bio_df = df[df["Course"] == "biology"]
     chem_df = df[df["Course"] == "chemistry"]
-
+  
     if bio_df.empty or chem_df.empty:
         st.error("❌ Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
