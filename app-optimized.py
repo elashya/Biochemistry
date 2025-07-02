@@ -42,6 +42,19 @@ if st.session_state.user_id is None:
             st.error("❌ Invalid username or password")
     st.stop()
 
+with st.expander("📂 View Files in user_data Folder"):
+    folder = "user_data"
+    if os.path.exists(folder):
+        files = os.listdir(folder)
+        if files:
+            for f in files:
+                st.write(f)
+        else:
+            st.info("No files in user_data folder yet.")
+    else:
+        st.warning("user_data folder does not exist.")
+
+
 # === Load/Save User Progress ===
 def load_user_progress(user_id):
     filepath = os.path.join(DATA_DIR, f"{user_id}.json")
