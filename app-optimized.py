@@ -350,6 +350,7 @@ Add timing info:
         st.subheader("📊 Final Tutor Report")
         st.markdown(st.session_state.score_summary)
         if st.button("🔁 Start Over"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
+            user_id = st.session_state.get("user_id")  # save before clearing
+            st.session_state.clear()
+            st.session_state["user_id"] = user_id      # restore login
             st.rerun()
