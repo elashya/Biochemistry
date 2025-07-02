@@ -91,14 +91,13 @@ init_session()
 
 # === Load and Show Quiz History ===
 user_data = load_user_progress(st.session_state.user_id)
-if user_data and "quiz_history" in user_data:
-    st.markdown("## 🗂️ Your Quiz History")
-    df_history = pd.DataFrame(user_data["quiz_history"])
-    df_history["quiz_date"] = pd.to_datetime(df_history["quiz_date"])
-    df_history = df_history.sort_values(by="quiz_date", ascending=False)
-    df_display = df_history[["quiz_date", "course", "units", "time_taken", "final_mark"]]
-    df_display.columns = ["Date", "Course", "Units", "Time", "Mark"]
-    st.dataframe(df_display)
+with st.expander("🗂️ Your Quiz History", expanded=False):
+    df = pd.DataFrame(user_data.get("history", [])[::-1])
+    if not df.empty:
+        df = df[["quiz_date", "course", "units", "time_taken", "final_mark"]]
+        df.columns = ["Date", "Course", "Units", "Time", "Mark"]
+        df.index.name = "#"
+        st.dataframe(df, use_container_width=True)
 
 # === Study Plan Progress Tracker ===
 @st.cache_data
@@ -156,15 +155,27 @@ if not st.session_state.quiz_started:
     bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-    st.markdown("### 📊 This is your expected progress point:")
-
+with st.expander("📊 This is your expected progress point:", expanded=True):
+    # BIOLOGY
     st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
-    st.progress(int(bio_progress['percent_complete']))
-    st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
+    bio_col1, bio_col2, bio_col3 = st.columns([1, 4, 3])
+    with bio_col1:
+        st.markdown(f"**{bio_progress['percent_complete']}%**")
+    with bio_col2:
+        st.progress(int(bio_progress['percent_complete']))
+    with bio_col3:
+        st.markdown(f"📅 {bio_completion_date.strftime('%A, %d %B %Y')}")
 
+    # CHEMISTRY
     st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
-    st.progress(int(chem_progress['percent_complete']))
-    st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
+    chem_col1, chem_col2, chem_col3 = st.columns([1, 4, 3])
+    with chem_col1:
+        st.markdown(f"**{chem_progress['percent_complete']}%**")
+    with chem_col2:
+        st.progress(int(chem_progress['percent_complete']))
+    with chem_col3:
+        st.markdown(f"📅 {chem_completion_date.strftime('%A, %d %B %Y')}")
+
 
     st.markdown("### 🎯 What are we revising today to get that A+ ?")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
