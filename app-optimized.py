@@ -270,6 +270,59 @@ def generate_master_performance(user_id):
         pass
 
     return insights
+# === Generate Master Performance Summary ===
+def generate_master_performance(user_id):
+    filepath = os.path.join(DATA_DIR, f"{user_id}.json")
+    if not os.path.exists(filepath):
+        return "📌 No cumulative performance insights yet. Complete a quiz to generate one."
+
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    
+    quiz_history = data.get("quiz_history", [])
+    if not quiz_history:
+        return "📌 No cumulative performance insights yet. Complete a quiz to generate one."
+
+    # Collect performance data
+    unit_stats = {}
+    total_score = 0
+    total_possible = 0
+
+    for record in quiz_history:
+        mark = record.get("final_mark", "0/0")
+        try:
+            score, out_of = map(int, re.findall(r"\d+", mark))
+            total_score += score
+            total_possible += out_of
+        except:
+            continue
+        
+        for unit in record.get("units", []):
+            if unit not in unit_stats:
+                unit_stats[unit] = {"score": 0, "out_of": 0}
+            unit_stats[unit]["score"] += score
+            unit_stats[unit]["out_of"] += out_of
+
+    if total_possible == 0:
+        return "📌 No valid marks yet to summarize performance."
+
+    # Build markdown + chart
+    markdown = "## 📈 Master Performance Report\n"
+    markdown += f"**Overall Accuracy:** `{round((total_score / total_possible) * 100, 1)}%`\n\n"
+    markdown += "**Unit-wise Performance:**\n"
+
+    chart_data = []
+    for unit, stats in unit_stats.items():
+        percent = round((stats["score"] / stats["out_of"]) * 100, 1)
+        markdown += f"- `{unit}`: {percent}% ({stats['score']}/{stats['out_of']})\n"
+        chart_data.append({"Unit": unit, "Accuracy (%)": percent})
+
+    # Plot chart
+    if chart_data:
+        df_chart = pd.DataFrame(chart_data)
+        st.bar_chart(df_chart.set_index("Unit"))
+
+    return markdown
 
 # === Save Progress After Quiz ===
 if st.session_state.quiz_started and st.session_state.score_summary:
