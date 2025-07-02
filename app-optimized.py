@@ -9,6 +9,7 @@ import os
 import json
 import matplotlib.pyplot as plt
 
+
 # === Config ===
 BIOCHEM_ASSISTANT_ID = "asst_uZSql3UUgVbDRKD4jaMXUkU5"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -521,3 +522,4 @@ Add timing info:
             st.session_state["user_id"] = user_id
             st.session_state["start_over"] = False
             st.rerun()
+
