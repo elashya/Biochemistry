@@ -349,8 +349,16 @@ Add timing info:
             st.session_state.score_summary = messages.data[0].content[0].text.value
         st.subheader("📊 Final Tutor Report")
         st.markdown(st.session_state.score_summary)
+
         if st.button("🔁 Start Over"):
-            user_id = st.session_state.get("user_id")  # save before clearing
-            st.session_state.clear()
-            st.session_state["user_id"] = user_id      # restore login
+            st.session_state.start_over = True
             st.rerun()
+        
+        # Handle session reset cleanly on next run
+        if st.session_state.get("start_over"):
+            user_id = st.session_state.get("user_id")
+            st.session_state.clear()
+            st.session_state["user_id"] = user_id
+            st.session_state["start_over"] = False
+            st.rerun()
+
