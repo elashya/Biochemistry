@@ -118,7 +118,7 @@ if not st.session_state.quiz_started:
     st.session_state.selected_units = selected_units
 
     st.subheader("3️⃣ Number of Questions")
-    st.session_state.total_questions = st.selectbox("Select total number of questions:", [10, 15, 20, 25, 30, 40], index=1)
+    st.session_state.total_questions = st.selectbox("Select total number of questions:", [10, 15, 20, 30, 40, 50, 60], index=1)
 
     if selected_units and st.button("🚀 Start Quiz"):
         thread = client.beta.threads.create()
