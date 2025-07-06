@@ -108,27 +108,6 @@ if not st.session_state.quiz_started:
         st.error("\u274C Could not load Biology or Chemistry content from the sheet. Please check formatting.")
         st.stop()
 
-    start_date = datetime(2025, 6, 14)
-    today = datetime.today()
-    days_elapsed = (today - start_date).days
-    slides_completed = (days_elapsed // 2) * 7
-
-    bio_progress = compute_progress(bio_df, slides_completed)
-    chem_progress = compute_progress(chem_df, slides_completed)
-
-    bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
-    chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
-
-    st.markdown("### 📊 This is your expected progress point:")
-
-    # BIOLOGY
-    st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
-    st.progress(int(bio_progress['percent_complete']))
-
-    # CHEMISTRY
-    st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
-    st.progress(int(chem_progress['percent_complete']))
-
     st.markdown("### 🌟 What are we revising today to get that A+ ?")
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
