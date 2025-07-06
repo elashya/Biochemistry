@@ -11,16 +11,16 @@ APP_PIN = st.secrets["APP_PIN"]
 
 # Map each course to its corresponding assistant ID
 ASSISTANT_IDS = {
-    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z", 
-    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",  
+    "Biology - SBI3U": "asst_abc123SBI3U",       # 🔁 Replace with actual ID
+    "Biology - SBI4U": "asst_def456SBI4U",       # 🔁 Replace with actual ID
     "Biology - Uni Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
-    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14"  
+    "Chemistry - SCH3U": "asst_xyz789SCH3U"      # 🔁 Replace with actual ID
 }
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI BioChem Tutor", layout="centered")
-st.title("\U0001F9EA AI Biology & Chemistry Tutor")
+st.title("🧪 AI Biology & Chemistry Tutor")
 
 # === PIN Authentication ===
 if "authenticated" not in st.session_state:
@@ -62,7 +62,7 @@ def init_session():
 
 init_session()
 
-# === Study Plan Progress Tracker ===
+# === Study Plan Tracker ===
 @st.cache_data
 def load_study_data():
     return pd.read_excel("study_plan.xlsx")
@@ -89,7 +89,7 @@ def compute_progress(course_df, slides_completed):
         "percent_complete": 100.0
     }
 
-# === Course and Units Definition ===
+# === Course and Units ===
 courses = {
     "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
     "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
@@ -105,51 +105,80 @@ if not st.session_state.quiz_started:
     chem_df = df[df["Course"] == "chemistry"]
 
     if bio_df.empty or chem_df.empty:
-        st.error("\u274C Could not load Biology or Chemistry content from the sheet. Please check formatting.")
+        st.error("❌ Could not load Biology or Chemistry content from the sheet.")
         st.stop()
 
-    st.markdown("### 🌟 What are we revising today to get that A+ ?")
+    start_date = datetime(2025, 6, 14)
+    today = datetime.today()
+    days_elapsed = (today - start_date).days
+    slides_completed = (days_elapsed // 2) * 7
+
+    bio_progress = compute_progress(bio_df, slides_completed)
+    chem_progress = compute_progress(chem_df, slides_completed)
+
+    st.markdown("### 📊 This is your expected progress point:")
+    st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
+    st.progress(int(bio_progress['percent_complete']))
+    st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
+    st.progress(int(chem_progress['percent_complete']))
+
+    st.markdown("### 🌟 What are we revising today?")
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
 
     st.subheader("2️⃣ Choose Units to Revise")
-    selected_units = st.multiselect("Select one or more units:", courses[selected_course])
+    selected_units = st.multiselect("Select units:", courses[selected_course])
     st.session_state.selected_units = selected_units
 
     st.subheader("3️⃣ Number of Questions")
-    total_qs = st.selectbox("Select total number of questions:", [3, 10, 15, 20, 25, 30], index=1)
-    st.session_state.total_questions = total_qs
+    st.session_state.total_questions = st.selectbox("Select total number of questions:", [3, 10, 15, 20, 25, 30], index=1)
 
-    if selected_units:
-        if st.button("🚀 Start Quiz"):
-            thread = client.beta.threads.create()
-            st.session_state.quiz_thread_id = thread.id
-            st.session_state.quiz_started = True
-            st.session_state.question_index = 0
-            st.session_state.question_history = []
-            st.session_state.start_time = datetime.now()
-            st.session_state.timestamps = []
-            st.rerun()
+    if selected_units and st.button("🚀 Start Quiz"):
+        thread = client.beta.threads.create()
+        st.session_state.quiz_thread_id = thread.id
+        st.session_state.quiz_started = True
+        st.session_state.question_index = 0
+        st.session_state.question_history = []
+        st.session_state.start_time = datetime.now()
+        st.session_state.timestamps = []
+        st.rerun()
 
 # === Quiz Loop ===
 elif st.session_state.quiz_started:
     idx = st.session_state.question_index
     thread_id = st.session_state.quiz_thread_id
     total = st.session_state.total_questions
-    assistant_id = ASSISTANT_IDS.get(st.session_state.selected_course)
+    course = st.session_state.selected_course
+    assistant_id = ASSISTANT_IDS.get(course)
 
-    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+    # Prompt logic
+    if course == "Biology - Uni Exam":
         prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
-Course: {st.session_state.selected_course}
+Course: {course}
 Units: {', '.join(st.session_state.selected_units)}
 Question {idx+1} of {total}
-Generate a mix of question types, including:
+Only generate a multiple-choice question [MCQ].
+Use this format:
+A. Option 1
+B. Option 2
+C. Option 3
+D. Option 4
+Do NOT include answers or hints.
+Only one question per response.
+"""
+    else:
+        prompt = f"""
+You are a kind and smart high school tutor helping a student prepare for real exams.
+Course: {course}
+Units: {', '.join(st.session_state.selected_units)}
+Question {idx+1} of {total}
+Generate a mix of question types:
 - Multiple Choice [MCQ]
 - Short Answer [Short Answer]
 - Fill-in-the-blank [Fill-in-the-Blank]
-Clearly label the type in brackets.
+Clearly label the type.
 For MCQ, use format:
 A. Option 1
 B. Option 2
@@ -158,25 +187,29 @@ D. Option 4
 Do NOT include answers or hints.
 Only one question per response.
 """
-        with st.spinner("\U0001F9E0 Tutor is preparing a question..."):
+
+    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+        with st.spinner("🧠 Tutor is preparing a question..."):
             client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
             run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
             while run.status != "completed":
                 time.sleep(1)
                 run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             messages = client.beta.threads.messages.list(thread_id=thread_id)
-            full_text = messages.data[0].content[0].text.value
-            st.session_state.current_question = full_text
+            text = messages.data[0].content[0].text.value
+
+            st.session_state.current_question = text
             st.session_state.timestamps.append(datetime.now())
 
-            lines = full_text.strip().splitlines()
+            lines = text.strip().splitlines()
             body_lines, options = [], []
             for line in lines:
                 if re.match(r"^[A-Da-d][).]?\s", line):
                     options.append(line.strip())
                 else:
                     body_lines.append(line.strip())
-            st.session_state.question_body = "\n".join(body_lines).strip()
+
+            st.session_state.question_body = "\n".join(body_lines)
             st.session_state.current_options = options
             st.session_state.is_mcq = len(options) >= 2
             st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
@@ -203,7 +236,8 @@ Only one question per response.
                     run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
                 messages = client.beta.threads.messages.list(thread_id=thread_id)
                 feedback = messages.data[0].content[0].text.value
-                st.success("\U0001F9E0 Feedback from Tutor")
+
+                st.success("🧠 Feedback from Tutor")
                 st.markdown(feedback)
                 st.session_state.question_history.append({
                     "question": st.session_state.current_question,
@@ -228,6 +262,7 @@ Only one question per response.
             seconds = int(duration.total_seconds())
             avg_time = seconds / total
             formatted = str(duration).split('.')[0]
+
             client.beta.threads.messages.create(
                 thread_id=thread_id,
                 role="user",
@@ -246,8 +281,10 @@ Add timing info:
                 run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             messages = client.beta.threads.messages.list(thread_id=thread_id)
             st.session_state.score_summary = messages.data[0].content[0].text.value
+
         st.subheader("📊 Final Tutor Report")
         st.markdown(st.session_state.score_summary)
+
         if st.button("🔁 Start Over"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
