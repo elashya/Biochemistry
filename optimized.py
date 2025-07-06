@@ -30,7 +30,7 @@ if not st.session_state.authenticated:
     pin = st.text_input("Enter your secure access PIN:", type="password")
     if pin == APP_PIN:
         st.session_state.authenticated = True
-        st.success("\u2705 Access granted.")
+        st.success("✅ Access granted.")
         time.sleep(1)
         st.rerun()
     else:
@@ -119,17 +119,17 @@ if not st.session_state.quiz_started:
     bio_completion_date = start_date + timedelta(days=((bio_df["# of slides"].sum() + 6) / 7) * 2)
     chem_completion_date = start_date + timedelta(days=((chem_df["# of slides"].sum() + 6) / 7) * 2)
 
-    st.markdown("### \ud83d\udcca This is your expected progress point:")
+    st.markdown("### 📊 This is your expected progress point:")
 
     # BIOLOGY
-    st.markdown(f"- \U0001F9EC **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
+    st.markdown(f"- 🧬 **Biology:** Unit {bio_progress['unit_number']} – {bio_progress['unit_title']}, Slide {bio_progress['slide_number']}")
     st.progress(int(bio_progress['percent_complete']))
 
     # CHEMISTRY
-    st.markdown(f"- \u2697\ufe0f **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
+    st.markdown(f"- ⚗️ **Chemistry:** Unit {chem_progress['unit_number']} – {chem_progress['unit_title']}, Slide {chem_progress['slide_number']}")
     st.progress(int(chem_progress['percent_complete']))
 
-    st.markdown("### \ud83c\udf1f What are we revising today to get that A+ ?")
+    st.markdown("### 🌟 What are we revising today to get that A+ ?")
     st.subheader("1️⃣ Choose Your Course")
     selected_course = st.selectbox("Select a course:", list(courses.keys()))
     st.session_state.selected_course = selected_course
@@ -143,7 +143,7 @@ if not st.session_state.quiz_started:
     st.session_state.total_questions = total_qs
 
     if selected_units:
-        if st.button("\ud83d\ude80 Start Quiz"):
+        if st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
             st.session_state.quiz_thread_id = thread.id
             st.session_state.quiz_started = True
@@ -203,7 +203,7 @@ Only one question per response.
             st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
 
     if st.session_state.current_question:
-        st.subheader(f"\u2753 Question {idx+1} of {total}")
+        st.subheader(f"❓ Question {idx+1} of {total}")
         st.markdown(st.session_state.question_body)
 
         if st.session_state.is_mcq:
@@ -211,8 +211,8 @@ Only one question per response.
         else:
             user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
 
-        if st.button("\ud83d\udcc4 Submit Answer"):
-            with st.spinner("\ud83d\udcda Evaluating..."):
+        if st.button("📤 Submit Answer"):
+            with st.spinner("📚 Evaluating..."):
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
                     role="user",
@@ -234,7 +234,7 @@ Only one question per response.
                 st.session_state.ready_for_next_question = True
 
     if st.session_state.ready_for_next_question:
-        next_label = "\u2705 Finish My Quiz" if idx + 1 == total else "\u27a1\ufe0f Next Question"
+        next_label = "✅ Finish My Quiz" if idx + 1 == total else "➡️ Next Question"
         if st.button(next_label):
             st.session_state.current_question = None
             st.session_state.question_body = ""
@@ -267,9 +267,9 @@ Add timing info:
                 run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
             messages = client.beta.threads.messages.list(thread_id=thread_id)
             st.session_state.score_summary = messages.data[0].content[0].text.value
-        st.subheader("\ud83d\udcca Final Tutor Report")
+        st.subheader("📊 Final Tutor Report")
         st.markdown(st.session_state.score_summary)
-        if st.button("\ud83d\udd01 Start Over"):
+        if st.button("🔁 Start Over"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
