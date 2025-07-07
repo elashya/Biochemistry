@@ -40,7 +40,6 @@ if not st.session_state.authenticated:
 # === Session Initialization ===
 def init_session():
     keys_defaults = {
-        "activity_type": None,
         "selected_course": None,
         "selected_units": None,
         "quiz_started": False,
@@ -64,6 +63,7 @@ def init_session():
 
 init_session()
 
+# === Study Plan Tracker ===
 @st.cache_data
 def load_study_data():
     return pd.read_excel("study_plan.xlsx")
@@ -98,90 +98,50 @@ courses = {
     "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
 }
 
-# === Main Activity Selection ===
-st.subheader("🎯 What would you like to do today?")
-st.session_state.activity_type = st.radio("Choose an activity:", ["Do quiz", "Practice essay"])
+# === Main Interface ===
+if not st.session_state.quiz_started:
+    df = load_study_data()
+    df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
+    bio_df = df[df["Course"] == "biology"]
+    chem_df = df[df["Course"] == "chemistry"]
 
-# === Essay Practice ===
-if st.session_state.activity_type == "Practice essay":
-    if "essay_thread_id" not in st.session_state:
-        st.session_state.essay_thread_id = client.beta.threads.create().id
+    if bio_df.empty or chem_df.empty:
+        st.error("❌ Could not load Biology or Chemistry content from the sheet.")
+        st.stop()
+    
+    st.markdown("### 🌟 What are we revising today?")
+    st.subheader("1️⃣ Choose Your Course")
+    selected_course = st.selectbox("Select a course:", list(courses.keys()))
+    st.session_state.selected_course = selected_course
 
-    assistant_id = ASSISTANT_IDS["Essay"]
-    thread_id = st.session_state.essay_thread_id
+    st.subheader("2️⃣ Choose Units to Revise")
+    selected_units = st.multiselect("Select units:", courses[selected_course])
+    st.session_state.selected_units = selected_units
 
-    if st.button("📝 Ask for an Essay Prompt"):
-        with st.spinner("Generating essay prompt..."):
-            client.beta.threads.messages.create(thread_id=thread_id, role="user", content="Please provide a 500–1000 word essay question suitable for physiotherapy school motivation letter.")
-            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
-            while run.status != "completed":
-                time.sleep(1)
-                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-            messages = client.beta.threads.messages.list(thread_id=thread_id)
-            prompt = messages.data[0].content[0].text.value
-            st.session_state.essay_prompt = prompt
+    st.subheader("3️⃣ Number of Questions")
+    st.session_state.total_questions = st.selectbox("Select total number of questions:", [2, 10, 15, 20, 30, 40, 50, 60], index=1)
 
-    if "essay_prompt" in st.session_state:
-        st.markdown("#### ✍️ Your Essay Prompt:")
-        st.markdown(st.session_state.essay_prompt)
+    if selected_units and st.button("🚀 Start Quiz"):
+        thread = client.beta.threads.create()
+        st.session_state.quiz_thread_id = thread.id
+        st.session_state.quiz_started = True
+        st.session_state.question_index = 0
+        st.session_state.question_history = []
+        st.session_state.start_time = datetime.now()
+        st.session_state.timestamps = []
+        st.rerun()
 
-        answer = st.text_area("Write your essay below:", height=300)
+# === Quiz Loop ===
+elif st.session_state.quiz_started:
+    idx = st.session_state.question_index
+    thread_id = st.session_state.quiz_thread_id
+    total = st.session_state.total_questions
+    course = st.session_state.selected_course
+    assistant_id = ASSISTANT_IDS.get(course)
 
-        if st.button("📤 Submit Essay for Evaluation"):
-            with st.spinner("Evaluating essay..."):
-                client.beta.threads.messages.create(thread_id=thread_id, role="user", content=f"Here is the student's essay:\n{answer}\n\nPlease evaluate it and give a score out of 100 with strengths and areas to improve.")
-                run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
-                while run.status != "completed":
-                    time.sleep(1)
-                    run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-                messages = client.beta.threads.messages.list(thread_id=thread_id)
-                feedback = messages.data[0].content[0].text.value
-                st.success("✅ Essay Evaluation")
-                st.markdown(feedback)
-
-# === Quiz Mode ===
-if st.session_state.activity_type == "Do quiz":
-    if not st.session_state.quiz_started:
-        df = load_study_data()
-        df["Course"] = df["Course"].str.lower().replace({"intro": "biology", "bilology": "biology"})
-        bio_df = df[df["Course"] == "biology"]
-        chem_df = df[df["Course"] == "chemistry"]
-
-        if bio_df.empty or chem_df.empty:
-            st.error("❌ Could not load Biology or Chemistry content from the sheet.")
-            st.stop()
-
-        st.markdown("### 🌟 What are we revising today?")
-        st.subheader("1️⃣ Choose Your Course")
-        selected_course = st.selectbox("Select a course:", list(courses.keys()))
-        st.session_state.selected_course = selected_course
-
-        st.subheader("2️⃣ Choose Units to Revise")
-        selected_units = st.multiselect("Select units:", courses[selected_course])
-        st.session_state.selected_units = selected_units
-
-        st.subheader("3️⃣ Number of Questions")
-        st.session_state.total_questions = st.selectbox("Select total number of questions:", [10, 15, 20, 30, 40, 50, 60], index=1)
-
-        if selected_units and st.button("🚀 Start Quiz"):
-            thread = client.beta.threads.create()
-            st.session_state.quiz_thread_id = thread.id
-            st.session_state.quiz_started = True
-            st.session_state.question_index = 0
-            st.session_state.question_history = []
-            st.session_state.start_time = datetime.now()
-            st.session_state.timestamps = []
-            st.rerun()
-
-    elif st.session_state.quiz_started:
-        idx = st.session_state.question_index
-        thread_id = st.session_state.quiz_thread_id
-        total = st.session_state.total_questions
-        course = st.session_state.selected_course
-        assistant_id = ASSISTANT_IDS.get(course)
-
-        if course == "Biology - Uni Exam":
-            prompt = f"""
+    # Prompt logic
+    if course == "Biology - Uni Exam":
+        prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
 Course: {course}
 Units: {', '.join(st.session_state.selected_units)}
@@ -195,8 +155,8 @@ D. Option 4
 Do NOT include answers or hints.
 Only one question per response.
 """
-        else:
-            prompt = f"""
+    else:
+        prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
 Course: {course}
 Units: {', '.join(st.session_state.selected_units)}
@@ -215,85 +175,85 @@ Do NOT include answers or hints.
 Only one question per response.
 """
 
-        if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
-            with st.spinner("🧠 Tutor is preparing a question..."):
-                client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
+    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+        with st.spinner("🧠 Tutor is preparing a question..."):
+            client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
+            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+            while run.status != "completed":
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            text = messages.data[0].content[0].text.value
+
+            st.session_state.current_question = text
+            st.session_state.timestamps.append(datetime.now())
+
+            lines = text.strip().splitlines()
+            body_lines, options = [], []
+            for line in lines:
+                if re.match(r"^[A-Da-d][).]?\s", line):
+                    options.append(line.strip())
+                else:
+                    body_lines.append(line.strip())
+
+            st.session_state.question_body = "\n".join(body_lines)
+            st.session_state.current_options = options
+            st.session_state.is_mcq = len(options) >= 2
+            st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
+
+    if st.session_state.current_question:
+        st.subheader(f"❓ Question {idx+1} of {total}")
+        st.markdown(st.session_state.question_body)
+
+        if st.session_state.is_mcq:
+            user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
+        else:
+            user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+
+        if st.button("📤 Submit Answer"):
+            with st.spinner("📚 Evaluating..."):
+                client.beta.threads.messages.create(
+                    thread_id=thread_id,
+                    role="user",
+                    content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease evaluate it clearly:\n- Say if it's correct or not\n- Give a brief explanation."
+                )
                 run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
                 while run.status != "completed":
                     time.sleep(1)
                     run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
                 messages = client.beta.threads.messages.list(thread_id=thread_id)
-                text = messages.data[0].content[0].text.value
+                feedback = messages.data[0].content[0].text.value
 
-                st.session_state.current_question = text
-                st.session_state.timestamps.append(datetime.now())
+                st.success("🧠 Feedback from Tutor")
+                st.markdown(feedback)
+                st.session_state.question_history.append({
+                    "question": st.session_state.current_question,
+                    "answer": user_answer,
+                    "feedback": feedback
+                })
+                st.session_state.ready_for_next_question = True
 
-                lines = text.strip().splitlines()
-                body_lines, options = [], []
-                for line in lines:
-                    if re.match(r"^[A-Da-d][).]?\\s", line):
-                        options.append(line.strip())
-                    else:
-                        body_lines.append(line.strip())
+    if st.session_state.ready_for_next_question:
+        next_label = "✅ Finish My Quiz" if idx + 1 == total else "➡️ Next Question"
+        if st.button(next_label):
+            st.session_state.current_question = None
+            st.session_state.question_body = ""
+            st.session_state.current_options = []
+            st.session_state.ready_for_next_question = False
+            st.session_state.question_index += 1
+            st.rerun()
 
-                st.session_state.question_body = "\n".join(body_lines)
-                st.session_state.current_options = options
-                st.session_state.is_mcq = len(options) >= 2
-                st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
+    elif idx >= total:
+        if not st.session_state.score_summary:
+            duration = datetime.now() - st.session_state.start_time
+            seconds = int(duration.total_seconds())
+            avg_time = seconds / total
+            formatted = str(duration).split('.')[0]
 
-        if st.session_state.current_question:
-            st.subheader(f"❓ Question {idx+1} of {total}")
-            st.markdown(st.session_state.question_body)
-
-            if st.session_state.is_mcq:
-                user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
-            else:
-                user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
-
-            if st.button("📤 Submit Answer"):
-                with st.spinner("📚 Evaluating..."):
-                    client.beta.threads.messages.create(
-                        thread_id=thread_id,
-                        role="user",
-                        content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease evaluate it clearly:\n- Say if it's correct or not\n- Give a brief explanation."
-                    )
-                    run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
-                    while run.status != "completed":
-                        time.sleep(1)
-                        run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-                    messages = client.beta.threads.messages.list(thread_id=thread_id)
-                    feedback = messages.data[0].content[0].text.value
-
-                    st.success("🧠 Feedback from Tutor")
-                    st.markdown(feedback)
-                    st.session_state.question_history.append({
-                        "question": st.session_state.current_question,
-                        "answer": user_answer,
-                        "feedback": feedback
-                    })
-                    st.session_state.ready_for_next_question = True
-
-        if st.session_state.ready_for_next_question:
-            next_label = "✅ Finish My Quiz" if idx + 1 == total else "➡️ Next Question"
-            if st.button(next_label):
-                st.session_state.current_question = None
-                st.session_state.question_body = ""
-                st.session_state.current_options = []
-                st.session_state.ready_for_next_question = False
-                st.session_state.question_index += 1
-                st.rerun()
-
-        elif idx >= total:
-            if not st.session_state.score_summary:
-                duration = datetime.now() - st.session_state.start_time
-                seconds = int(duration.total_seconds())
-                avg_time = seconds / total
-                formatted = str(duration).split('.')[0]
-
-                client.beta.threads.messages.create(
-                    thread_id=thread_id,
-                    role="user",
-                    content=f"""Please summarize the student's performance for {total} questions:
+            client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=f"""Please summarize the student's performance for {total} questions:
 - Strengths
 - Areas to improve
 - Final mark out of {total}
@@ -301,18 +261,18 @@ Add timing info:
 - Total Time: {formatted}
 - Avg Time per Question: {avg_time:.1f} sec
 """
-                )
-                run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
-                while run.status != "completed":
-                    time.sleep(1)
-                    run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-                messages = client.beta.threads.messages.list(thread_id=thread_id)
-                st.session_state.score_summary = messages.data[0].content[0].text.value
+            )
+            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+            while run.status != "completed":
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+            messages = client.beta.threads.messages.list(thread_id=thread_id)
+            st.session_state.score_summary = messages.data[0].content[0].text.value
 
-            st.subheader("📊 Final Tutor Report")
-            st.markdown(st.session_state.score_summary)
+        st.subheader("📊 Final Tutor Report")
+        st.markdown(st.session_state.score_summary)
 
-            if st.button("🔁 Start Over"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.rerun()
+        if st.button("🔁 Start Over"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
