@@ -11,10 +11,11 @@ APP_PIN = st.secrets["APP_PIN"]
 
 # Map each course to its corresponding assistant ID
 ASSISTANT_IDS = {
-    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",       # 🔁 Replace with actual ID
-    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",       # 🔁 Replace with actual ID
+    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",      
+    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",     
     "Biology - Uni Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
-    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14"      # 🔁 Replace with actual ID
+    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14",
+    "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag"
 }
 
 client = OpenAI(api_key=OPENAI_API_KEY)
