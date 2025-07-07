@@ -100,6 +100,52 @@ if st.session_state.essay_prompt:
                 )
 
                 # Step 3: Wait until run completes or timeout
+                max_wait = 60  # increased from 30
+                start_time = time.time()
+                while run.status not in ["completed", "failed", "cancelled"]:
+                    st.write(f"⏳ Current run status: `{run.status}`")
+                    if time.time() - start_time > max_wait:
+                        raise TimeoutError("⚠️ Assistant evaluation took too long.")
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(
+                        thread_id=st.session_state.essay_thread_id,
+                        run_id=run.id
+                    )
+
+                if run.status != "completed":
+                    st.error(f"❌ Assistant run failed with status: {run.status}")
+                else:
+                    # Step 4: Get response
+                    messages = client.beta.threads.messages.list(thread_id=st.session_state.essay_thread_id)
+
+                    if messages.data and messages.data[0].content:
+                        feedback = messages.data[0].content[0].text.value.strip()
+                        st.session_state.essay_feedback = feedback
+                        st.session_state.essay_submitted = True
+                        st.success("✅ Essay evaluated successfully!")
+                        st.markdown("### 📋 Feedback")
+                        st.markdown(feedback)
+                    else:
+                        st.error("⚠️ No feedback was returned. Please try again.")
+
+            except Exception as e:
+                st.error(f"❌ Error during evaluation: {e}")
+
+            try:
+                # Step 1: Send essay to thread
+                client.beta.threads.messages.create(
+                    thread_id=st.session_state.essay_thread_id,
+                    role="user",
+                    content=f"Here is the student's essay:\n\n{st.session_state.user_essay}\n\nPlease evaluate it using university entrance standards and give feedback and a mark out of 100."
+                )
+
+                # Step 2: Start assistant run
+                run = client.beta.threads.runs.create(
+                    thread_id=st.session_state.essay_thread_id,
+                    assistant_id=ASSISTANT_IDS["Essay"]
+                )
+
+                # Step 3: Wait until run completes or timeout
                 max_wait = 30  # seconds
                 start_time = time.time()
                 while run.status not in ["completed", "failed", "cancelled"]:
