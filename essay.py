@@ -83,7 +83,7 @@ if st.session_state.essay_prompt:
     st.subheader("✍️ Write Your Essay")
     st.session_state.user_essay = st.text_area("Paste or type your response here:", height=300)
 
-    if st.button("📤 Submit Essay"):
+ if st.button("📤 Submit Essay"):
     with st.spinner("📚 Evaluating your essay..."):
         client.beta.threads.messages.create(
             thread_id=st.session_state.essay_thread_id,
