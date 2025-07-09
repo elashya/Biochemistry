@@ -281,74 +281,74 @@ elif mode == "Practice Quiz":
         if not st.session_state.current_question and not st.session_state.ready_for_next_question:
             with st.spinner("🧠 Generating quiz question..."):
                 if course == "Biology - Uni Exam":
-        prompt = f"""
-You are a kind and smart high school tutor helping a student prepare for real exams.
-Course: {course}
-Units: {', '.join(st.session_state.selected_units)}
-Question {idx+1} of {total}
-Only generate a multiple-choice question [MCQ].
-Use this format:
-A. Option 1
-B. Option 2
-C. Option 3
-D. Option 4
-Do NOT include answers or hints.
-Only one question per response.
-"""
-    else:
-        prompt = f"""
-You are a kind and smart high school tutor helping a student prepare for real exams.
-Course: {course}
-Units: {', '.join(st.session_state.selected_units)}
-Question {idx+1} of {total}
-Generate a mix of question types:
-- Multiple Choice [MCQ]
-- Short Answer [Short Answer]
-- Fill-in-the-blank [Fill-in-the-Blank]
-Clearly label the type.
-For MCQ, use format:
-A. Option 1
-B. Option 2
-C. Option 3
-D. Option 4
-Do NOT include answers or hints.
-Only one question per response.
-"""
-
-    if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
-        with st.spinner("🧠 Tutor is preparing a question..."):
-            client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
-            run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
-            while run.status != "completed":
-                time.sleep(1)
-                run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
-            messages = client.beta.threads.messages.list(thread_id=thread_id)
-            text = messages.data[0].content[0].text.value
-
-            st.session_state.current_question = text
-            st.session_state.timestamps.append(datetime.now())
-
-            lines = text.strip().splitlines()
-            body_lines, options = [], []
-            for line in lines:
-                if re.match(r"^[A-Da-d][).]?\s", line):
-                    options.append(line.strip())
-                else:
-                    body_lines.append(line.strip())
-
-            st.session_state.question_body = "\n".join(body_lines)
-            st.session_state.current_options = options
-            st.session_state.is_mcq = len(options) >= 2
-            st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
-
-    if st.session_state.current_question:
-        st.subheader(f"❓ Question {idx+1} of {total}")
-        st.markdown(st.session_state.question_body)
-
-        if st.session_state.is_mcq:
-            user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
+            prompt = f"""
+    You are a kind and smart high school tutor helping a student prepare for real exams.
+    Course: {course}
+    Units: {', '.join(st.session_state.selected_units)}
+    Question {idx+1} of {total}
+    Only generate a multiple-choice question [MCQ].
+    Use this format:
+    A. Option 1
+    B. Option 2
+    C. Option 3
+    D. Option 4
+    Do NOT include answers or hints.
+    Only one question per response.
+    """
         else:
-            user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
+            prompt = f"""
+    You are a kind and smart high school tutor helping a student prepare for real exams.
+    Course: {course}
+    Units: {', '.join(st.session_state.selected_units)}
+    Question {idx+1} of {total}
+    Generate a mix of question types:
+    - Multiple Choice [MCQ]
+    - Short Answer [Short Answer]
+    - Fill-in-the-blank [Fill-in-the-Blank]
+    Clearly label the type.
+    For MCQ, use format:
+    A. Option 1
+    B. Option 2
+    C. Option 3
+    D. Option 4
+    Do NOT include answers or hints.
+    Only one question per response.
+    """
+    
+        if idx < total and not st.session_state.current_question and not st.session_state.ready_for_next_question:
+            with st.spinner("🧠 Tutor is preparing a question..."):
+                client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
+                run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+                while run.status != "completed":
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+                messages = client.beta.threads.messages.list(thread_id=thread_id)
+                text = messages.data[0].content[0].text.value
+    
+                st.session_state.current_question = text
+                st.session_state.timestamps.append(datetime.now())
+    
+                lines = text.strip().splitlines()
+                body_lines, options = [], []
+                for line in lines:
+                    if re.match(r"^[A-Da-d][).]?\s", line):
+                        options.append(line.strip())
+                    else:
+                        body_lines.append(line.strip())
+    
+                st.session_state.question_body = "\n".join(body_lines)
+                st.session_state.current_options = options
+                st.session_state.is_mcq = len(options) >= 2
+                st.session_state.question_type = "MCQ" if st.session_state.is_mcq else "Short Answer"
+    
+        if st.session_state.current_question:
+            st.subheader(f"❓ Question {idx+1} of {total}")
+            st.markdown(st.session_state.question_body)
+    
+            if st.session_state.is_mcq:
+                user_answer = st.radio("Choose your answer:", st.session_state.current_options, key=f"mcq_{idx}")
+            else:
+                user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
 
 
 
