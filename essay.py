@@ -245,6 +245,22 @@ elif mode == "Practice Interview":
 elif mode == "Practice Quiz":
     st.markdown("### 🧪 Practice Quiz Mode")
 
+    # ✅ Prevent rendering leftover question after quiz is finished
+    if st.session_state.get("quiz_completed"):
+        st.subheader("📊 Quiz Summary")
+        for i, entry in enumerate(st.session_state.question_history):
+            st.markdown(f"**Q{i+1}:** {entry['question']}")
+            st.markdown(f"- **Your Answer:** {entry['answer']}")
+            st.markdown(f"- **Feedback:** {entry['feedback']}")
+            st.markdown("---")
+
+        if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+
+        st.stop()  # ⛔ Prevent question UI from showing after quiz ends
+
     courses = {
         "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
         "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
@@ -252,15 +268,16 @@ elif mode == "Practice Quiz":
         "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
     }
 
-    if not st.session_state.quiz_started and not st.session_state.get("quiz_completed", False):
+    if not st.session_state.get("quiz_started", False):
         selected_course = st.selectbox("Select a course:", list(courses.keys()))
         selected_units = st.multiselect("Select units:", courses[selected_course])
-        total_questions = st.selectbox("How many questions?", [3, 10, 15, 20, 30, 40, 50, 60], index=2)
+        total_questions = st.selectbox("How many questions?", [3, 10, 15, 20, 30, 40, 50, 60], index=0)
 
         if selected_units and st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
             st.session_state.quiz_thread_id = thread.id
             st.session_state.quiz_started = True
+            st.session_state.quiz_completed = False
             st.session_state.selected_course = selected_course
             st.session_state.selected_units = selected_units
             st.session_state.total_questions = total_questions
@@ -269,6 +286,7 @@ elif mode == "Practice Quiz":
             st.session_state.start_time = datetime.now()
             st.session_state.ready_for_next_question = False
             st.session_state.current_question = None
+            st.session_state.timestamps = []
             st.rerun()
 
     else:
@@ -338,7 +356,6 @@ Do NOT include answers or hints.
                 lines = text.strip().splitlines()
                 body_lines, options = [], []
                 for line in lines:
-                    # Split options if on same line
                     if re.search(r"A[).]\s.+B[).]\s.+C[).]\s.+D[).]\s.+", line):
                         parts = re.split(r"(?=[A-D][).]\s)", line)
                         options.extend([opt.strip() for opt in parts if opt.strip()])
@@ -382,7 +399,6 @@ Do NOT include answers or hints.
                     })
                     st.session_state.ready_for_next_question = True
 
-
         if st.session_state.ready_for_next_question:
             next_label = "✅ Finish Quiz" if idx + 1 == total else "➡️ Next Question"
             if st.button(next_label):
@@ -392,35 +408,8 @@ Do NOT include answers or hints.
                     st.session_state.ready_for_next_question = False
                     st.rerun()
                 else:
-                    # ✅ Quiz is done: clear current question before rerun
                     st.session_state.current_question = None
                     st.session_state.ready_for_next_question = False
                     st.session_state.quiz_started = False
                     st.session_state.quiz_completed = True
                     st.rerun()
-
-
-        
-        # === Final Summary After Quiz Completion ===
-        if st.session_state.get("quiz_completed") and st.session_state.get("question_history"):
-            st.subheader("📊 Quiz Summary")
-            for i, entry in enumerate(st.session_state.question_history):
-                st.markdown(f"**Q{i+1}:** {entry['question']}")
-                st.markdown(f"- **Your Answer:** {entry['answer']}")
-                st.markdown(f"- **Feedback:** {entry['feedback']}")
-                st.markdown("---")
-        
-            if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
-                for key in list(st.session_state.keys()):
-                    del st.session_state[key]
-                st.rerun()
-        
-            # ✅ Prevent leftover UI like final question from appearing
-            st.stop()
-
-
-# === Global Start Over (Essay/Interview) ===
-if st.session_state.essay_submitted or st.session_state.interview_submitted:
-    if st.button("🔄 Start Over", key="start_over_button_unique"):
-        st.session_state.reset_app = True
-        st.rerun()
