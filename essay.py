@@ -243,10 +243,88 @@ elif mode == "Practice Interview":
 
 # === Practice Quiz ===
 elif mode == "Practice Quiz":
-    # ✅ Prevent rendering leftover question after quiz is finished
+    # === Final Summary After Quiz Completion ===
     if st.session_state.get("quiz_completed"):
-        st.markdown("### ✨ Exam is completed")
-        st.stop()
+        st.markdown("## 🎉 Quiz Completed!")
+        
+        # Timing Summary
+        end_time = datetime.now()
+        duration = end_time - st.session_state.start_time
+        total_seconds = int(duration.total_seconds())
+        formatted_time = str(duration).split('.')[0]
+        avg_time = total_seconds / st.session_state.total_questions if st.session_state.total_questions else 0
+
+        st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
+        st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
+
+        # Summary Table
+        st.markdown("### 📊 Performance Summary")
+        summary_data = []
+        correct_count = 0
+
+        for i, entry in enumerate(st.session_state.question_history, 1):
+            feedback = entry["feedback"]
+            is_correct = "correct" in feedback.lower()
+            if is_correct:
+                correct_count += 1
+            summary_data.append({
+                "Q#": i,
+                "Question (excerpt)": entry["question"][:60] + "...",
+                "Answer": entry["answer"],
+                "Correct?": "✅" if is_correct else "❌",
+                "Tutor Feedback": feedback[:100] + "..." if len(feedback) > 100 else feedback
+            })
+
+        df = pd.DataFrame(summary_data)
+        st.dataframe(df, use_container_width=True)
+
+        # Final Score
+        total = st.session_state.total_questions
+        st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
+
+        # Generate Overall Insights from the Assistant
+        with st.spinner("🧠 Analyzing your overall performance..."):
+            insights_prompt = f"""
+Please give me a comprehensive exam report based on this student’s performance across {total} questions.
+
+- First, summarize their **strengths** and topics they answered well.
+- Next, explain **areas for improvement** and weak topics.
+- Then, offer **exam preparation tips** tailored to the student's mistakes.
+- Finish with a motivational comment and a final score out of {total}.
+
+Here is the data:
+{"".join([f"Q{i+1}: {entry['question']}\nAnswer: {entry['answer']}\nFeedback: {entry['feedback']}\n\n" for i, entry in enumerate(st.session_state.question_history)])}
+
+Time taken: {formatted_time}
+Average time/question: {avg_time:.1f} sec
+"""
+            client.beta.threads.messages.create(
+                thread_id=st.session_state.quiz_thread_id,
+                role="user",
+                content=insights_prompt
+            )
+            run = client.beta.threads.runs.create(
+                thread_id=st.session_state.quiz_thread_id,
+                assistant_id=ASSISTANT_IDS[st.session_state.selected_course]
+            )
+            while run.status != "completed":
+                time.sleep(1)
+                run = client.beta.threads.runs.retrieve(thread_id=st.session_state.quiz_thread_id, run_id=run.id)
+            messages = client.beta.threads.messages.list(thread_id=st.session_state.quiz_thread_id)
+            summary_text = messages.data[0].content[0].text.value
+
+            st.markdown("### 🧾 Detailed Feedback Summary")
+            st.markdown(summary_text)
+
+        # Option to restart
+        if st.button("🔁 Start Over"):
+            st.session_state.quiz_completed = False
+            st.session_state.quiz_started = False
+            st.session_state.question_history = []
+            st.session_state.question_index = 0
+            st.session_state.current_question = None
+            st.rerun()
+
 
 
 
