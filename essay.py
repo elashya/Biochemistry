@@ -277,7 +277,8 @@ elif mode == "Practice Quiz":
             })
 
         df = pd.DataFrame(summary_data)
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.set_index("Q#"), use_container_width=True)
+
 
         # Final Score
         total = st.session_state.total_questions
