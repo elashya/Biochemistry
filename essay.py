@@ -44,13 +44,24 @@ def init_session():
         "interview_prompt": "",
         "interview_feedback": "",
         "interview_response": "",
-        "interview_submitted": False
+        "interview_submitted": False,
+        "reset_app": False
     }
     for key, default in keys_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default
 
 init_session()
+
+# === Safe Reset Logic ===
+if st.session_state.reset_app:
+    for key in [
+        "essay_thread_id", "essay_prompt", "user_essay", "essay_feedback", "essay_submitted",
+        "interview_thread_id", "interview_prompt", "interview_feedback", "interview_response", "interview_submitted"
+    ]:
+        st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
+    st.session_state.reset_app = False
+    st.experimental_rerun()
 
 # === Mode Selection ===
 mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview"])
@@ -203,12 +214,8 @@ elif mode == "Practice Interview":
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
 
-        # Optional: Reset buttons
-        if st.session_state.essay_submitted or st.session_state.interview_submitted:
-            if st.button("🔄 Start Over"):
-                for key in [
-                    "essay_thread_id", "essay_prompt", "user_essay", "essay_feedback", "essay_submitted",
-                    "interview_thread_id", "interview_prompt", "interview_feedback", "interview_response", "interview_submitted"
-                ]:
-                    st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
-                st.experimental_rerun()
+# === Start Over Button ===
+if st.session_state.essay_submitted or st.session_state.interview_submitted:
+    if st.button("🔄 Start Over"):
+        st.session_state.reset_app = True
+        st.experimental_rerun()
