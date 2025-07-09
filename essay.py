@@ -252,10 +252,10 @@ elif mode == "Practice Quiz":
         "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
     }
 
-    if not st.session_state.quiz_started:
+    if not st.session_state.quiz_started and not st.session_state.get("quiz_completed", False):
         selected_course = st.selectbox("Select a course:", list(courses.keys()))
         selected_units = st.multiselect("Select units:", courses[selected_course])
-        total_questions = st.selectbox("How many questions?", [1, 3, 5, 10], index=2)
+        total_questions = st.selectbox("How many questions?", [3, 10, 15, 20, 30, 40, 50, 60], index=2)
 
         if selected_units and st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
