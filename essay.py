@@ -243,7 +243,7 @@ elif mode == "Practice Interview":
 
 # === Practice Quiz ===
 elif mode == "Practice Quiz":
-    st.markdown("### 🧪 Practice Quiz Mode")
+    st.markdown("### 🧪 Sohail Elashy")
 
     # ✅ Prevent rendering leftover question after quiz is finished
     if st.session_state.get("quiz_completed"):
