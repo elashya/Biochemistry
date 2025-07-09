@@ -386,17 +386,19 @@ Do NOT include answers or hints.
         if st.session_state.ready_for_next_question:
             next_label = "✅ Finish Quiz" if idx + 1 == total else "➡️ Next Question"
             if st.button(next_label):
-                # Only update state if quiz is not finished
                 if idx + 1 < total:
                     st.session_state.question_index += 1
                     st.session_state.current_question = None
                     st.session_state.ready_for_next_question = False
                     st.rerun()
                 else:
-                    # Quiz is done
+                    # ✅ Quiz is done: clear current question before rerun
+                    st.session_state.current_question = None
+                    st.session_state.ready_for_next_question = False
                     st.session_state.quiz_started = False
                     st.session_state.quiz_completed = True
                     st.rerun()
+
 
         
         # === Final Summary After Quiz Completion ===
