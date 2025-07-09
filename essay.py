@@ -382,17 +382,23 @@ Do NOT include answers or hints.
                     })
                     st.session_state.ready_for_next_question = True
 
+
         if st.session_state.ready_for_next_question:
             next_label = "✅ Finish Quiz" if idx + 1 == total else "➡️ Next Question"
             if st.button(next_label):
-                st.session_state.current_question = None
-                st.session_state.ready_for_next_question = False
-                st.session_state.question_index += 1
-                if st.session_state.question_index >= total:
+                # Only update state if quiz is not finished
+                if idx + 1 < total:
+                    st.session_state.question_index += 1
+                    st.session_state.current_question = None
+                    st.session_state.ready_for_next_question = False
+                    st.rerun()
+                else:
+                    # Quiz is done
                     st.session_state.quiz_started = False
-                    st.session_state.quiz_completed = True 
+                    st.session_state.quiz_completed = True
                     st.rerun()
 
+        
         # === Final Summary After Quiz Completion ===
         if not st.session_state.quiz_started and st.session_state.question_history:
             st.subheader("📊 Quiz Summary")
@@ -406,6 +412,9 @@ Do NOT include answers or hints.
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
+
+
+
 
 # === Global Start Over (Essay/Interview) ===
 if st.session_state.essay_submitted or st.session_state.interview_submitted:
