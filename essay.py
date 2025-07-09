@@ -239,11 +239,11 @@ elif mode == "Practice Quiz":
     st.markdown("### 🧪 Practice Quiz Mode")
 
     courses = {
-        "Biology - SBI3U": [...],
-        "Biology - SBI4U": [...],
-        "Biology - Uni Exam": ["All topics"],
-        "Chemistry - SCH3U": [...]
-    }
+    "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
+    "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
+    "Biology - Uni Exam": ["All topics"],
+    "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
+}
 
     if not st.session_state.quiz_started:
         selected_course = st.selectbox("Select a course:", list(courses.keys()))
