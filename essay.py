@@ -312,10 +312,6 @@ Do NOT include the answer or hints.
                 st.session_state.current_question = "\n".join(body)
                 st.session_state.current_options = options
 
-
-                st.session_state.current_question = "\n".join(body_lines)
-                st.session_state.current_options = options
-
         if st.session_state.current_question:
             st.subheader(f"❓ Question {idx+1} of {total}")
             st.markdown(st.session_state.current_question)
