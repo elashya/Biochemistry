@@ -245,21 +245,47 @@ elif mode == "Practice Interview":
 elif mode == "Practice Quiz":
     st.markdown("### 🧪 Sohail Elashy")
 
-    # ✅ Prevent rendering leftover question after quiz is finished
-    if st.session_state.get("quiz_completed"):
-        st.subheader("📊 Quiz Summary")
+    # ✅ Final Summary Block (replace old version)
+    if st.session_state.get("quiz_completed") and st.session_state.get("question_history"):
+        total = len(st.session_state.question_history)
+        correct = sum(1 for q in st.session_state.question_history if "✅" in q["feedback"])
+        incorrect = total - correct
+        score_pct = round((correct / total) * 100)
+        time_taken = datetime.now() - st.session_state.start_time
+    
+        st.subheader("📊 Overall Quiz Summary")
+        st.markdown(f"- ✅ **Correct:** {correct}")
+        st.markdown(f"- ❌ **Incorrect:** {incorrect}")
+        st.markdown(f"- 📈 **Score:** {score_pct}%")
+        st.markdown(f"- ⏱️ **Time Taken:** {str(time_taken).split('.')[0]}")
+    
+        # Emoji-based performance message
+        if score_pct == 100:
+            st.success("🎉 Perfect Score! Excellent work!")
+        elif score_pct >= 80:
+            st.success("💪 Great job!")
+        elif score_pct >= 50:
+            st.warning("👍 Good effort — keep practicing!")
+        else:
+            st.error("📘 Needs improvement — review your mistakes and try again!")
+    
+        st.markdown("---")
+        st.subheader("📝 Detailed Question Review")
+    
         for i, entry in enumerate(st.session_state.question_history):
-            st.markdown(f"**Q{i+1}:** {entry['question']}")
+            st.markdown(f"**Q{i+1}: {entry.get('question_type', 'Question')}**")
+            st.markdown(entry['question'])
             st.markdown(f"- **Your Answer:** {entry['answer']}")
             st.markdown(f"- **Feedback:** {entry['feedback']}")
             st.markdown("---")
-
+    
         if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
+    
+        st.stop()
 
-        st.stop()  # ⛔ Prevent question UI from showing after quiz ends
 
     courses = {
         "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
