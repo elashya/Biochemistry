@@ -227,12 +227,6 @@ elif mode == "Practice Interview":
 
 # === Start Over Button ===
 if st.session_state.essay_submitted or st.session_state.interview_submitted:
-    if st.button("🔄 Start Over"):
-        st.session_state.reset_app = True
-        st.experimental_rerun()
-
-if st.session_state.essay_submitted or st.session_state.interview_submitted:
-    if st.button("🔄 Start Over"):
+    if st.button("🔄 Start Over", key="start_over_button_unique"):
         st.session_state.reset_app = True
         st.rerun()
-
