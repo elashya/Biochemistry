@@ -3,6 +3,7 @@ from openai import OpenAI
 import time
 import pandas as pd
 from datetime import datetime
+import re
 
 # === Config ===
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -10,13 +11,17 @@ APP_PIN = st.secrets["APP_PIN"]
 
 ASSISTANT_IDS = {
     "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag",
-    "Interviewer": "asst_GgZ2Y3WrUrHMDyO1nsGC9N1D"
+    "Interviewer": "asst_GgZ2Y3WrUrHMDyO1nsGC9N1D",
+    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",
+    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",
+    "Biology - Uni Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
+    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14"
 }
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 st.set_page_config(page_title="AI Essay and Interview Practice", layout="centered")
-st.title("🎓 AI Entrance Exam Practice")
+st.title("\U0001F393 AI Entrance Exam Practice")
 
 # === PIN Authentication ===
 if "authenticated" not in st.session_state:
@@ -45,38 +50,41 @@ def init_session():
         "interview_feedback": "",
         "interview_response": "",
         "interview_submitted": False,
-        "reset_app": False
+        "reset_app": False,
+
+        # For quiz mode
+        "quiz_started": False,
+        "selected_course": None,
+        "selected_units": [],
+        "total_questions": 0,
+        "question_index": 0,
+        "quiz_thread_id": None,
+        "question_history": [],
+        "start_time": None,
+        "ready_for_next_question": False,
+        "current_question": None,
+        "current_options": [],
     }
     for key, default in keys_defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default
 
 init_session()
-# === Handle Reset BEFORE any rendering ===
+
+# === Reset Logic ===
 if st.session_state.get("reset_app", False):
-    for key in [
-        "essay_thread_id", "essay_prompt", "user_essay", "essay_feedback", "essay_submitted",
-        "interview_thread_id", "interview_prompt", "interview_feedback", "interview_response", "interview_submitted"
-    ]:
-        if key in st.session_state:
-            st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
-    st.session_state.reset_app = False
-    st.rerun()  # Note: this avoids AttributeError
-
-
-# === Safe Reset Logic ===
-if st.session_state.reset_app:
     for key in [
         "essay_thread_id", "essay_prompt", "user_essay", "essay_feedback", "essay_submitted",
         "interview_thread_id", "interview_prompt", "interview_feedback", "interview_response", "interview_submitted"
     ]:
         st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
     st.session_state.reset_app = False
-    st.experimental_rerun()
+    st.rerun()
 
 # === Mode Selection ===
 mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
-   
+
+# === Practice Essay ===
 if mode == "Practice Essay":
     st.markdown("### ✨ Practice Essay Writing")
 
@@ -151,34 +159,35 @@ if mode == "Practice Essay":
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
 
-    elif mode == "Practice Interview":
-        st.markdown("### 🎤 Practice Interview Questions")
-    
-        if not st.session_state.interview_prompt:
-            if st.button("🎯 Get Interview Question"):
-                with st.spinner("🧠 Generating interview question..."):
-                    thread = client.beta.threads.create()
-                    st.session_state.interview_thread_id = thread.id
-    
-                    client.beta.threads.messages.create(
-                        thread_id=thread.id,
-                        role="user",
-                        content="Ask me one physiotherapy university admission interview question."
-                    )
-                    run = client.beta.threads.runs.create(
-                        thread_id=thread.id,
-                        assistant_id=ASSISTANT_IDS["Interviewer"]
-                    )
-                    while run.status != "completed":
-                        time.sleep(1)
-                        run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-                    messages = client.beta.threads.messages.list(thread_id=thread.id)
-                    question_text = messages.data[0].content[0].text.value
-    
-                    st.session_state.interview_prompt = question_text
-                    st.session_state.interview_response = ""
-                    st.session_state.interview_feedback = ""
-                    st.session_state.interview_submitted = False
+# === Practice Interview ===
+elif mode == "Practice Interview":
+    st.markdown("### 🎤 Practice Interview Questions")
+
+    if not st.session_state.interview_prompt:
+        if st.button("🎯 Get Interview Question"):
+            with st.spinner("🧠 Generating interview question..."):
+                thread = client.beta.threads.create()
+                st.session_state.interview_thread_id = thread.id
+
+                client.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role="user",
+                    content="Ask me one physiotherapy university admission interview question."
+                )
+                run = client.beta.threads.runs.create(
+                    thread_id=thread.id,
+                    assistant_id=ASSISTANT_IDS["Interviewer"]
+                )
+                while run.status != "completed":
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+                messages = client.beta.threads.messages.list(thread_id=thread.id)
+                question_text = messages.data[0].content[0].text.value
+
+                st.session_state.interview_prompt = question_text
+                st.session_state.interview_response = ""
+                st.session_state.interview_feedback = ""
+                st.session_state.interview_submitted = False
 
     if st.session_state.interview_prompt:
         st.subheader("🎙️ Interview Question")
@@ -225,18 +234,18 @@ if mode == "Practice Essay":
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
 
+# === Practice Quiz ===
 elif mode == "Practice Quiz":
     st.markdown("### 🧪 Practice Quiz Mode")
 
-    # Course and unit selection (once per session)
-    if not st.session_state.quiz_started:
-        courses = {
-            "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
-            "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
-            "Biology - Uni Exam": ["All topics"],
-            "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
-        }
+    courses = {
+        "Biology - SBI3U": [...],
+        "Biology - SBI4U": [...],
+        "Biology - Uni Exam": ["All topics"],
+        "Chemistry - SCH3U": [...]
+    }
 
+    if not st.session_state.quiz_started:
         selected_course = st.selectbox("Select a course:", list(courses.keys()))
         selected_units = st.multiselect("Select units:", courses[selected_course])
         total_questions = st.selectbox("How many questions?", [1, 3, 5, 10], index=2)
@@ -256,7 +265,6 @@ elif mode == "Practice Quiz":
             st.rerun()
 
     else:
-        # === Quiz Logic ===
         idx = st.session_state.question_index
         total = st.session_state.total_questions
         course = st.session_state.selected_course
@@ -290,7 +298,7 @@ Do NOT include the answer or hints.
                 lines = text.strip().splitlines()
                 body_lines, options = [], []
                 for line in lines:
-                    if re.match(r"^[A-Da-d][).]?\s", line):
+                    if re.match(r"^[A-Da-d][).]?\\s", line):
                         options.append(line.strip())
                     else:
                         body_lines.append(line.strip())
@@ -333,11 +341,24 @@ Do NOT include the answer or hints.
                 st.session_state.ready_for_next_question = False
                 st.session_state.question_index += 1
                 if st.session_state.question_index >= total:
-                    st.session_state.quiz_started = False  # End quiz
+                    st.session_state.quiz_started = False
                 st.rerun()
 
+        # === Final Summary After Quiz Completion ===
+        if not st.session_state.quiz_started and st.session_state.question_history:
+            st.subheader("📊 Quiz Summary")
+            for i, entry in enumerate(st.session_state.question_history):
+                st.markdown(f"**Q{i+1}:** {entry['question']}")
+                st.markdown(f"- **Your Answer:** {entry['answer']}")
+                st.markdown(f"- **Feedback:** {entry['feedback']}")
+                st.markdown("---")
 
-# === Start Over Button ===
+            if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
+
+# === Global Start Over (Essay/Interview) ===
 if st.session_state.essay_submitted or st.session_state.interview_submitted:
     if st.button("🔄 Start Over", key="start_over_button_unique"):
         st.session_state.reset_app = True
