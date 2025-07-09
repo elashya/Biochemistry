@@ -52,6 +52,17 @@ def init_session():
             st.session_state[key] = default
 
 init_session()
+# === Handle Reset BEFORE any rendering ===
+if st.session_state.get("reset_app", False):
+    for key in [
+        "essay_thread_id", "essay_prompt", "user_essay", "essay_feedback", "essay_submitted",
+        "interview_thread_id", "interview_prompt", "interview_feedback", "interview_response", "interview_submitted"
+    ]:
+        if key in st.session_state:
+            st.session_state[key] = "" if isinstance(st.session_state[key], str) else None
+    st.session_state.reset_app = False
+    st.rerun()  # Note: this avoids AttributeError
+
 
 # === Safe Reset Logic ===
 if st.session_state.reset_app:
@@ -219,3 +230,9 @@ if st.session_state.essay_submitted or st.session_state.interview_submitted:
     if st.button("🔄 Start Over"):
         st.session_state.reset_app = True
         st.experimental_rerun()
+
+if st.session_state.essay_submitted or st.session_state.interview_submitted:
+    if st.button("🔄 Start Over"):
+        st.session_state.reset_app = True
+        st.rerun()
+
