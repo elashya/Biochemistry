@@ -391,7 +391,7 @@ Do NOT include answers or hints.
                 if st.session_state.question_index >= total:
                     st.session_state.quiz_started = False
                     st.session_state.quiz_completed = True 
-                st.rerun()
+                    st.rerun()
 
         # === Final Summary After Quiz Completion ===
         if not st.session_state.quiz_started and st.session_state.question_history:
