@@ -84,7 +84,7 @@ if st.session_state.get("reset_app", False):
     st.rerun()
 
 # === Mode Selection ===
-if not st.session_state.quiz_started:
+if not st.session_state.quiz_started and not st.session_state.quiz_completed:
     mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
     st.session_state.mode = mode
 else:
@@ -390,6 +390,7 @@ Do NOT include answers or hints.
                 st.session_state.question_index += 1
                 if st.session_state.question_index >= total:
                     st.session_state.quiz_started = False
+                    st.session_state.quiz_completed = True 
                 st.rerun()
 
         # === Final Summary After Quiz Completion ===
