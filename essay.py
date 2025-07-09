@@ -53,6 +53,7 @@ def init_session():
         "reset_app": False,
 
         # For quiz mode
+        "quiz_completed": False,
         "quiz_started": False,
         "selected_course": None,
         "selected_units": [],
