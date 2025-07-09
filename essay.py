@@ -52,7 +52,7 @@ def init_session():
         "interview_submitted": False,
         "reset_app": False,
         "mode": None,
-
+        "timestamps": [],  # ✅ required for st.session_state.timestamps.append()
         # For quiz mode
         "quiz_completed": False,
         "quiz_started": False,
