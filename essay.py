@@ -401,15 +401,18 @@ Do NOT include answers or hints.
 
         if st.session_state.ready_for_next_question:
             next_label = "✅ Finish Quiz" if idx + 1 == total else "➡️ Next Question"
+            
             if st.button(next_label):
                 if idx + 1 < total:
+                    # Move to next question
                     st.session_state.question_index += 1
                     st.session_state.current_question = None
                     st.session_state.ready_for_next_question = False
                     st.rerun()
                 else:
-                    st.session_state.current_question = None
-                    st.session_state.ready_for_next_question = False
+                    # ✅ Final question submitted — mark quiz complete
                     st.session_state.quiz_started = False
+                    st.session_state.ready_for_next_question = False
+                    st.session_state.current_question = None
                     st.session_state.quiz_completed = True
                     st.rerun()
