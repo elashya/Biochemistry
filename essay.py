@@ -273,11 +273,12 @@ elif mode == "Practice Quiz":
         selected_units = st.multiselect("Select units:", courses[selected_course])
         total_questions = st.selectbox("How many questions?", [3, 10, 15, 20, 30, 40, 50, 60], index=0)
 
+
         if selected_units and st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
             st.session_state.quiz_thread_id = thread.id
             st.session_state.quiz_started = True
-            st.session_state.quiz_completed = False
+            st.session_state.quiz_completed = False  # ✅ <--- ADD THIS
             st.session_state.selected_course = selected_course
             st.session_state.selected_units = selected_units
             st.session_state.total_questions = total_questions
@@ -286,8 +287,8 @@ elif mode == "Practice Quiz":
             st.session_state.start_time = datetime.now()
             st.session_state.ready_for_next_question = False
             st.session_state.current_question = None
-            st.session_state.timestamps = []
             st.rerun()
+
 
     else:
         idx = st.session_state.question_index
