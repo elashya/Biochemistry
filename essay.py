@@ -76,7 +76,6 @@ if st.session_state.reset_app:
 
 # === Mode Selection ===
 mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
-
    
 if mode == "Practice Essay":
     st.markdown("### ✨ Practice Essay Writing")
@@ -152,34 +151,34 @@ if mode == "Practice Essay":
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
 
-elif mode == "Practice Interview":
-    st.markdown("### 🎤 Practice Interview Questions")
-
-    if not st.session_state.interview_prompt:
-        if st.button("🎯 Get Interview Question"):
-            with st.spinner("🧠 Generating interview question..."):
-                thread = client.beta.threads.create()
-                st.session_state.interview_thread_id = thread.id
-
-                client.beta.threads.messages.create(
-                    thread_id=thread.id,
-                    role="user",
-                    content="Ask me one physiotherapy university admission interview question."
-                )
-                run = client.beta.threads.runs.create(
-                    thread_id=thread.id,
-                    assistant_id=ASSISTANT_IDS["Interviewer"]
-                )
-                while run.status != "completed":
-                    time.sleep(1)
-                    run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-                messages = client.beta.threads.messages.list(thread_id=thread.id)
-                question_text = messages.data[0].content[0].text.value
-
-                st.session_state.interview_prompt = question_text
-                st.session_state.interview_response = ""
-                st.session_state.interview_feedback = ""
-                st.session_state.interview_submitted = False
+    elif mode == "Practice Interview":
+        st.markdown("### 🎤 Practice Interview Questions")
+    
+        if not st.session_state.interview_prompt:
+            if st.button("🎯 Get Interview Question"):
+                with st.spinner("🧠 Generating interview question..."):
+                    thread = client.beta.threads.create()
+                    st.session_state.interview_thread_id = thread.id
+    
+                    client.beta.threads.messages.create(
+                        thread_id=thread.id,
+                        role="user",
+                        content="Ask me one physiotherapy university admission interview question."
+                    )
+                    run = client.beta.threads.runs.create(
+                        thread_id=thread.id,
+                        assistant_id=ASSISTANT_IDS["Interviewer"]
+                    )
+                    while run.status != "completed":
+                        time.sleep(1)
+                        run = client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+                    messages = client.beta.threads.messages.list(thread_id=thread.id)
+                    question_text = messages.data[0].content[0].text.value
+    
+                    st.session_state.interview_prompt = question_text
+                    st.session_state.interview_response = ""
+                    st.session_state.interview_feedback = ""
+                    st.session_state.interview_submitted = False
 
     if st.session_state.interview_prompt:
         st.subheader("🎙️ Interview Question")
