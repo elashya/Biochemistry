@@ -75,8 +75,9 @@ if st.session_state.reset_app:
     st.experimental_rerun()
 
 # === Mode Selection ===
-mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview"])
+mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
 
+   
 if mode == "Practice Essay":
     st.markdown("### ✨ Practice Essay Writing")
 
@@ -224,6 +225,28 @@ elif mode == "Practice Interview":
 
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
+
+elif mode == "Practice Quiz":
+    st.markdown("### 🧪 Practice Quiz Mode")
+
+    st.info("🛠️ Quiz functionality coming soon... or being added now!")
+
+    # Example placeholder for a quiz question
+    if st.button("🧠 Get a Quiz Question"):
+        # Replace this with your quiz logic or assistant call
+        st.session_state.quiz_question = "What is the main function of mitochondria in a cell?"
+
+    if "quiz_question" in st.session_state and st.session_state.quiz_question:
+        st.subheader("❓ Quiz Question")
+        st.markdown(st.session_state.quiz_question)
+
+        user_answer = st.text_input("Your Answer:")
+        if st.button("📤 Submit Answer"):
+            # Simple example feedback (replace with OpenAI logic)
+            if user_answer.lower() in ["energy production", "produce energy", "atp production"]:
+                st.success("✅ Correct! Mitochondria are the powerhouses of the cell.")
+            else:
+                st.error("❌ Not quite. The correct answer is: Energy production (ATP).")
 
 # === Start Over Button ===
 if st.session_state.essay_submitted or st.session_state.interview_submitted:
