@@ -242,7 +242,8 @@ elif mode == "Practice Interview":
                     st.error(f"❌ Error during evaluation: {e}")
 
 elif mode == "Practice Quiz":
-    # === Final Summary After Quiz Completion ===
+
+    # === 1. Quiz Summary ===
     if st.session_state.get("quiz_completed"):
         st.markdown("## 🎉 Quiz Completed!")
         
@@ -278,7 +279,6 @@ elif mode == "Practice Quiz":
 
         df = pd.DataFrame(summary_data)
         st.dataframe(df.set_index("Q#"), use_container_width=True)
-
 
         # Final Score
         total = st.session_state.total_questions
@@ -326,7 +326,7 @@ Average time/question: {avg_time:.1f} sec
             st.markdown("### 🧾 Detailed Feedback Summary")
             st.markdown(summary_text)
 
-        # Start Over button UNDER final score
+        # Start Over button
         st.markdown("---")
         st.markdown("#### 🔁 Ready to try again?")
         if st.button("🔁 Start Over"):
@@ -338,8 +338,39 @@ Average time/question: {avg_time:.1f} sec
                 st.session_state[key] = None if key != "quiz_completed" else False
             st.rerun()
 
-        # Prevent course/unit selector from rendering below
-        st.stop()
+        st.stop()  # ⛔ stop further rendering after summary
+
+
+    # === 2. Course & Unit Selection (if quiz not started)
+    courses = {
+        "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
+        "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
+        "Biology - Uni Exam": ["All topics"],
+        "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
+    }
+
+    if not st.session_state.get("quiz_started", False):
+        selected_course = st.selectbox("Select a course:", list(courses.keys()))
+        selected_units = st.multiselect("Select units:", courses[selected_course])
+        total_questions = st.selectbox("How many questions?", [3, 10, 15, 20, 30, 40, 50, 60], index=0)
+
+        if selected_units and st.button("🚀 Start Quiz"):
+            thread = client.beta.threads.create()
+            st.session_state.quiz_thread_id = thread.id
+            st.session_state.quiz_started = True
+            st.session_state.quiz_completed = False
+            st.session_state.selected_course = selected_course
+            st.session_state.selected_units = selected_units
+            st.session_state.total_questions = total_questions
+            st.session_state.question_index = 0
+            st.session_state.question_history = []
+            st.session_state.start_time = datetime.now()
+            st.session_state.ready_for_next_question = False
+            st.session_state.current_question = None
+            st.rerun()
+
+        st.stop()  # ⛔ Don't fall through to quiz if not started
+
 
     # === Course & Unit Selection ===
     courses = {
