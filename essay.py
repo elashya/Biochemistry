@@ -296,12 +296,22 @@ Do NOT include the answer or hints.
                 text = messages.data[0].content[0].text.value
 
                 lines = text.strip().splitlines()
-                body_lines, options = [], []
+                body = []
+                options = []
+                
                 for line in lines:
-                    if re.match(r"^[A-Da-d][).]?\\s", line):
+                    # Check if the line contains all options in one string
+                    if re.search(r"A[).]\s.+B[).]\s.+C[).]\s.+D[).]\s.+", line):
+                        parts = re.split(r"(?=[A-D][).]\s)", line)
+                        options.extend([opt.strip() for opt in parts if opt.strip()])
+                    elif re.match(r"^[A-D][).]?\s", line.strip()):
                         options.append(line.strip())
                     else:
-                        body_lines.append(line.strip())
+                        body.append(line.strip())
+                
+                st.session_state.current_question = "\n".join(body)
+                st.session_state.current_options = options
+
 
                 st.session_state.current_question = "\n".join(body_lines)
                 st.session_state.current_options = options
