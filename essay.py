@@ -282,13 +282,30 @@ elif mode == "Practice Quiz":
                     if "topic:" in line.lower():
                         topic = line.split(":", 1)[-1].strip()
                         break
-            if "correct" in feedback:
-                if topic:
-                    strengths.append(topic)
-            elif "incorrect" in feedback:
-                if topic:
-                    weaknesses.append(topic)
-    
+
+
+
+            for entry in st.session_state.question_history:
+                feedback = entry['feedback'].lower()
+                topic = ""
+                lines = feedback.splitlines()
+            
+                for line in lines:
+                    if "topic:" in line.lower():
+                        topic = line.split(":", 1)[-1].strip()
+                        break
+            
+                if "❌ incorrect" in feedback:
+                    if topic:
+                        weaknesses.append(topic)
+                elif "✅ correct" in feedback:
+                    if topic:
+                        strengths.append(topic)
+
+
+        
+
+        
         # Remove duplicates and sort
         strengths = sorted(set(strengths))
         weaknesses = sorted(set(weaknesses))
