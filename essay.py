@@ -51,6 +51,7 @@ def init_session():
         "interview_response": "",
         "interview_submitted": False,
         "reset_app": False,
+        "mode": None,
 
         # For quiz mode
         "quiz_completed": False,
@@ -83,7 +84,12 @@ if st.session_state.get("reset_app", False):
     st.rerun()
 
 # === Mode Selection ===
-mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
+if not st.session_state.quiz_started:
+    mode = st.radio("Select Practice Mode:", ["Practice Essay", "Practice Interview", "Practice Quiz"])
+    st.session_state.mode = mode
+else:
+    mode = st.session_state.get("mode", "Practice Quiz")
+
 
 # === Practice Essay ===
 if mode == "Practice Essay":
