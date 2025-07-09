@@ -9,7 +9,8 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 APP_PIN = st.secrets["APP_PIN"]
 
 ASSISTANT_IDS = {
-    "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag"
+    "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag",
+    "Interviewer": "asst_GgZ2Y3WrUrHMDyO1nsGC9N1D"
 }
 
 client = OpenAI(api_key=OPENAI_API_KEY)
