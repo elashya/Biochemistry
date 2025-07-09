@@ -400,20 +400,21 @@ Do NOT include answers or hints.
 
         
         # === Final Summary After Quiz Completion ===
-        if not st.session_state.quiz_started and st.session_state.question_history:
+        if st.session_state.get("quiz_completed") and st.session_state.get("question_history"):
             st.subheader("📊 Quiz Summary")
             for i, entry in enumerate(st.session_state.question_history):
                 st.markdown(f"**Q{i+1}:** {entry['question']}")
                 st.markdown(f"- **Your Answer:** {entry['answer']}")
                 st.markdown(f"- **Feedback:** {entry['feedback']}")
                 st.markdown("---")
-
+        
             if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
-
-
+        
+            # ✅ Prevent leftover UI like final question from appearing
+            st.stop()
 
 
 # === Global Start Over (Essay/Interview) ===
