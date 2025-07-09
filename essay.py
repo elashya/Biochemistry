@@ -228,24 +228,114 @@ if mode == "Practice Essay":
 elif mode == "Practice Quiz":
     st.markdown("### 🧪 Practice Quiz Mode")
 
-    st.info("🛠️ Quiz functionality coming soon... or being added now!")
+    # Course and unit selection (once per session)
+    if not st.session_state.quiz_started:
+        courses = {
+            "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
+            "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
+            "Biology - Uni Exam": ["All topics"],
+            "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
+        }
 
-    # Example placeholder for a quiz question
-    if st.button("🧠 Get a Quiz Question"):
-        # Replace this with your quiz logic or assistant call
-        st.session_state.quiz_question = "What is the main function of mitochondria in a cell?"
+        selected_course = st.selectbox("Select a course:", list(courses.keys()))
+        selected_units = st.multiselect("Select units:", courses[selected_course])
+        total_questions = st.selectbox("How many questions?", [1, 3, 5, 10], index=2)
 
-    if "quiz_question" in st.session_state and st.session_state.quiz_question:
-        st.subheader("❓ Quiz Question")
-        st.markdown(st.session_state.quiz_question)
+        if selected_units and st.button("🚀 Start Quiz"):
+            thread = client.beta.threads.create()
+            st.session_state.quiz_thread_id = thread.id
+            st.session_state.quiz_started = True
+            st.session_state.selected_course = selected_course
+            st.session_state.selected_units = selected_units
+            st.session_state.total_questions = total_questions
+            st.session_state.question_index = 0
+            st.session_state.question_history = []
+            st.session_state.start_time = datetime.now()
+            st.session_state.ready_for_next_question = False
+            st.session_state.current_question = None
+            st.rerun()
 
-        user_answer = st.text_input("Your Answer:")
-        if st.button("📤 Submit Answer"):
-            # Simple example feedback (replace with OpenAI logic)
-            if user_answer.lower() in ["energy production", "produce energy", "atp production"]:
-                st.success("✅ Correct! Mitochondria are the powerhouses of the cell.")
-            else:
-                st.error("❌ Not quite. The correct answer is: Energy production (ATP).")
+    else:
+        # === Quiz Logic ===
+        idx = st.session_state.question_index
+        total = st.session_state.total_questions
+        course = st.session_state.selected_course
+        assistant_id = ASSISTANT_IDS.get(course)
+        thread_id = st.session_state.quiz_thread_id
+
+        if not st.session_state.current_question and not st.session_state.ready_for_next_question:
+            with st.spinner("🧠 Generating quiz question..."):
+                prompt = f"""
+You are a kind and smart high school tutor helping a student prepare for real exams.
+Course: {course}
+Units: {', '.join(st.session_state.selected_units)}
+Question {idx+1} of {total}
+Generate a multiple-choice question.
+Use format:
+A. Option 1
+B. Option 2
+C. Option 3
+D. Option 4
+Only one correct answer.
+Do NOT include the answer or hints.
+"""
+                client.beta.threads.messages.create(thread_id=thread_id, role="user", content=prompt)
+                run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+                while run.status != "completed":
+                    time.sleep(1)
+                    run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+                messages = client.beta.threads.messages.list(thread_id=thread_id)
+                text = messages.data[0].content[0].text.value
+
+                lines = text.strip().splitlines()
+                body_lines, options = [], []
+                for line in lines:
+                    if re.match(r"^[A-Da-d][).]?\s", line):
+                        options.append(line.strip())
+                    else:
+                        body_lines.append(line.strip())
+
+                st.session_state.current_question = "\n".join(body_lines)
+                st.session_state.current_options = options
+
+        if st.session_state.current_question:
+            st.subheader(f"❓ Question {idx+1} of {total}")
+            st.markdown(st.session_state.current_question)
+            user_answer = st.radio("Your answer:", st.session_state.current_options, key=f"quiz_{idx}")
+
+            if st.button("📤 Submit Answer"):
+                with st.spinner("💬 Getting feedback..."):
+                    client.beta.threads.messages.create(
+                        thread_id=thread_id,
+                        role="user",
+                        content=f"The student's answer to Question {idx+1} is: {user_answer}\n\nPlease say if it's correct, explain briefly, and mention the correct answer."
+                    )
+                    run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
+                    while run.status != "completed":
+                        time.sleep(1)
+                        run = client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run.id)
+                    messages = client.beta.threads.messages.list(thread_id=thread_id)
+                    feedback = messages.data[0].content[0].text.value
+
+                    st.success("✅ Tutor Feedback")
+                    st.markdown(feedback)
+                    st.session_state.question_history.append({
+                        "question": st.session_state.current_question,
+                        "answer": user_answer,
+                        "feedback": feedback
+                    })
+                    st.session_state.ready_for_next_question = True
+
+        if st.session_state.ready_for_next_question:
+            next_label = "✅ Finish Quiz" if idx + 1 == total else "➡️ Next Question"
+            if st.button(next_label):
+                st.session_state.current_question = None
+                st.session_state.ready_for_next_question = False
+                st.session_state.question_index += 1
+                if st.session_state.question_index >= total:
+                    st.session_state.quiz_started = False  # End quiz
+                st.rerun()
+
 
 # === Start Over Button ===
 if st.session_state.essay_submitted or st.session_state.interview_submitted:
