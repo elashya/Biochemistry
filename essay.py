@@ -280,7 +280,7 @@ elif mode == "Practice Quiz":
 
         if not st.session_state.current_question and not st.session_state.ready_for_next_question:
             with st.spinner("🧠 Generating quiz question..."):
-                    if course == "Biology - Uni Exam":
+                if course == "Biology - Uni Exam":
         prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
 Course: {course}
