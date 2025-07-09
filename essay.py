@@ -243,106 +243,88 @@ elif mode == "Practice Interview":
 
 # === Practice Quiz ===
 elif mode == "Practice Quiz":
-    if st.session_state.get("quiz_completed") and st.session_state.get("question_history"):
-        total = len(st.session_state.question_history)
-        correct = sum(1 for q in st.session_state.question_history if "✅" in q["feedback"])
-        incorrect = total - correct
-        score_pct = round((correct / total) * 100)
-        time_taken = datetime.now() - st.session_state.start_time
-    
-        st.subheader("📊 Overall Quiz Summary")
-        st.markdown(f"- ✅ **Correct:** {correct}")
-        st.markdown(f"- ❌ **Incorrect:** {incorrect}")
-        st.markdown(f"- 📈 **Score:** {score_pct}%")
-        st.markdown(f"- ⏱️ **Time Taken:** {str(time_taken).split('.')[0]}")
-    
-        # Emoji-based performance message
-        if score_pct == 100:
-            st.success("🎉 Perfect Score! Excellent work!")
-        elif score_pct >= 80:
-            st.success("💪 Great job!")
-        elif score_pct >= 50:
-            st.warning("👍 Good effort — keep practicing!")
-        else:
-            st.error("📘 Needs improvement — review your mistakes and try again!")
-    
-        # ✨ Performance Analysis Section
-        st.markdown("---")
-        st.subheader("📚 Performance Insights")
-    
-        strengths = []
-        weaknesses = []
-    
-        for entry in st.session_state.question_history:
-            feedback = entry['feedback'].lower()
-            topic = ""
-            if "topic:" in feedback:
-                lines = feedback.splitlines()
-                for line in lines:
-                    if "topic:" in line.lower():
-                        topic = line.split(":", 1)[-1].strip()
-                        break
+    # ✅ Prevent rendering leftover question after quiz is finished
+if st.session_state.get("quiz_completed"):
+    from collections import Counter
 
+    total = st.session_state.total_questions
+    duration = datetime.now() - st.session_state.start_time
+    seconds = int(duration.total_seconds())
+    formatted = str(duration).split('.')[0]
 
+    # Analyze performance
+    correct = 0
+    incorrect = 0
+    strengths = []
+    weaknesses = []
 
-            for entry in st.session_state.question_history:
-                feedback = entry['feedback'].lower()
-                topic = ""
-                lines = feedback.splitlines()
-            
-                for line in lines:
-                    if "topic:" in line.lower():
-                        topic = line.split(":", 1)[-1].strip()
-                        break
-            
-                if "❌ incorrect" in feedback:
-                    if topic:
-                        weaknesses.append(topic)
-                elif "✅ correct" in feedback:
-                    if topic:
-                        strengths.append(topic)
+    for entry in st.session_state.question_history:
+        feedback = entry['feedback'].lower()
+        topic = ""
+        for line in feedback.splitlines():
+            if "topic:" in line.lower():
+                topic = line.split(":", 1)[-1].strip()
+                break
+        if "❌ incorrect" in feedback:
+            incorrect += 1
+            if topic:
+                weaknesses.append(topic)
+        elif "✅ correct" in feedback:
+            correct += 1
+            if topic:
+                strengths.append(topic)
 
+    score = int((correct / total) * 100)
 
-        
+    st.subheader("📊 Overall Quiz Summary")
+    st.markdown(f"- ✅ **Correct:** {correct}")
+    st.markdown(f"- ❌ **Incorrect:** {incorrect}")
+    st.markdown(f"- 📈 **Score:** {score}%")
+    st.markdown(f"- ⏱️ **Time Taken:** {formatted}")
 
-        
-        # Remove duplicates and sort
-        strengths = sorted(set(strengths))
-        weaknesses = sorted(set(weaknesses))
-    
-        if strengths:
-            st.markdown("### ✅ Strengths")
-            st.markdown(", ".join(strengths))
-        else:
-            st.markdown("### ✅ Strengths")
-            st.markdown("_No specific strengths detected — keep practicing!_")
-    
-        if weaknesses:
-            st.markdown("### 📉 Weak Areas")
-            st.markdown(", ".join(weaknesses))
-        else:
-            st.markdown("### 📉 Weak Areas")
-            st.markdown("_No major weak areas detected — excellent balance!_")
-    
-        # Tips section
-        st.markdown("### 💡 Exam Strategy Tips")
-        if weaknesses:
-            st.markdown("- Revisit weak areas above using your course materials or flashcards.")
-            st.markdown("- Try more targeted quizzes in those topics.")
-            st.markdown("- Slow down and read each question carefully — some mistakes may be due to rushing.")
-        else:
-            st.markdown("- Keep practicing to reinforce your strengths.")
-            st.markdown("- Challenge yourself with longer quizzes or time limits.")
-            st.markdown("- Try explaining the topic to someone else to deepen understanding.")
-    
-        # Restart option
-        st.markdown("---")
-        if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
-    
-        st.stop()
+    if score == 100:
+        st.success("Excellent work — you got everything right!")
+    elif score >= 70:
+        st.success("Well done — solid performance!")
+    elif score >= 40:
+        st.warning("Getting there — keep practicing!")
+    else:
+        st.error("Needs improvement — review your mistakes and try again!")
+
+    # Strengths and Weaknesses
+    st.markdown("---")
+    st.subheader("📚 Performance Insights")
+
+    if strengths:
+        strong = ", ".join(Counter(strengths).most_common(5))
+        st.markdown("### ✅ Strengths")
+        st.markdown(strong)
+    else:
+        st.markdown("### ✅ Strengths")
+        st.markdown("_No strong areas detected yet — let’s build some!_")
+
+    if weaknesses:
+        weak = ", ".join(Counter(weaknesses).most_common(5))
+        st.markdown("### 📉 Weak Areas")
+        st.markdown(weak)
+    else:
+        st.markdown("### 📉 Weak Areas")
+        st.markdown("_No major weak areas detected — excellent balance!_")
+
+    st.markdown("### 💡 Exam Strategy Tips")
+    st.markdown("""
+    - Keep practicing to reinforce your strengths.
+    - Challenge yourself with longer quizzes or time limits.
+    - Try explaining the topic to someone else to deepen understanding.
+    - Focus revision time on the topics listed under 'Weak Areas'.
+    """)
+
+    if st.button("🔄 Start Over (Quiz)", key="quiz_restart_button"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
+
+    st.stop()
 
 
 
