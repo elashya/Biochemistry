@@ -413,7 +413,7 @@ Data:
     if not st.session_state.get("quiz_started", False):
         selected_course = st.selectbox("Select a course:", list(courses.keys()))
         selected_units = st.multiselect("Select units:", courses[selected_course])
-        total_questions = st.selectbox("How many questions?", [3, 5, 10, 15, 20], index=0)
+        total_questions = st.selectbox("How many questions?", [10, 20, 30, 40, 50, 60], index=0)
 
         if selected_units and st.button("🚀 Start Quiz"):
             thread = client.beta.threads.create()
