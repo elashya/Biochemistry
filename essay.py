@@ -4,6 +4,38 @@ import time
 import pandas as pd
 from datetime import datetime
 import re
+import requests
+
+
+RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
+
+def send_brevo_email(subject, message_text):
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": st.secrets["BREVO_API_KEY"]
+    }
+    data = {
+        "sender": {
+            "name": "AI Tutor",
+            "email": st.secrets["SENDER_EMAIL"]
+        },
+        "to": [{"email": RECIPIENT_EMAIL}],
+        "subject": subject,
+        "textContent": message_text
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+
+    if response.status_code == 201:
+        st.success("📧 Result sent to your inbox.")
+    else:
+        st.error(f"❌ Failed to send email: {response.status_code} — {response.text}")
+
+
+
+
 
 # === Config ===
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
@@ -163,6 +195,19 @@ if mode == "Practice Essay":
                         st.markdown("### 📋 Feedback")
                         st.markdown(feedback)
 
+                        subject = "Essay Practice Result - AI Entrance"
+                        message = f"""Essay Prompt:
+                        {st.session_state.essay_prompt}
+                        
+                        User Essay:
+                        {st.session_state.user_essay}
+                        
+                        Evaluation:
+                        {feedback}
+                        """
+                        send_brevo_email(subject, message)
+
+
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
 
@@ -237,6 +282,19 @@ elif mode == "Practice Interview":
                         st.success("✅ Interview evaluated successfully!")
                         st.markdown("### 📋 Feedback")
                         st.markdown(feedback)
+
+                        subject = "Interview Practice Result - AI Entrance"
+                        message = f"""Interview Question:
+                        {st.session_state.interview_prompt}
+                        
+                        User Response:
+                        {st.session_state.interview_response}
+                        
+                        Evaluation:
+                        {feedback}
+                        """
+                        send_brevo_email(subject, message)
+
 
                 except Exception as e:
                     st.error(f"❌ Error during evaluation: {e}")
@@ -318,6 +376,19 @@ Data:
 
             st.markdown("### 🧾 Detailed Feedback Summary")
             st.markdown(summary_text)
+
+            subject = f"Quiz Result - {st.session_state.selected_course}"
+            message = f"""Quiz Summary Report
+            
+            Course: {st.session_state.selected_course}
+            Time Taken: {formatted_time}
+            Avg Time/Question: {avg_time:.1f} seconds
+            
+            {summary_text}
+            """
+            send_brevo_email(subject, message)
+
+
 
         st.markdown("---")
         if st.button("🔁 Start Over"):
