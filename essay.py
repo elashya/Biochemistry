@@ -321,7 +321,9 @@ elif mode == "Practice Quiz":
         for i, entry in enumerate(st.session_state.question_history, 1):
             feedback = entry["feedback"]
             import re
-            is_correct = bool(re.search(r"\b(correct|✅)\b", feedback, re.IGNORECASE)) and not re.search(r"\bincorrect\b", feedback, re.IGNORECASE)
+            is_correct = feedback.strip().lower().startswith("**correct")
+
+
 
             if is_correct:
                 correct_count += 1
