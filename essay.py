@@ -314,28 +314,7 @@ elif mode == "Practice Quiz":
         st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
         st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
 
-
-        st.markdown("### 📊 Performance Summary")
-        summary_data = []
-        correct_count = 0
-        
-        for i, entry in enumerate(st.session_state.question_history, 1):
-            feedback = entry["feedback"]
-            import re
-            is_correct = feedback.strip().startswith("✅")
-
-        
-            if is_correct:
-                correct_count += 1
-            summary_data.append({
-                "Q#": i,
-                "Answer": entry["answer"],
-                "Tutor Feedback": feedback[:100] + "..." if len(feedback) > 100 else feedback
-            })
-        
-        df = pd.DataFrame(summary_data)
-        st.dataframe(df.set_index("Q#"), use_container_width=True)
-        
+       
         # ✅ total AFTER the loop
         total = st.session_state.total_questions
         st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
