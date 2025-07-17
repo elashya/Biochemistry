@@ -304,26 +304,26 @@ elif mode == "Practice Quiz":
     # === 1. Show Summary ===
     if st.session_state.get("quiz_completed"):
         st.markdown("## 🎉 Quiz Completed!")
-
+    
         end_time = datetime.now()
         duration = end_time - st.session_state.start_time
         total_seconds = int(duration.total_seconds())
         formatted_time = str(duration).split('.')[0]
         avg_time = total_seconds / st.session_state.total_questions if st.session_state.total_questions else 0
-
+    
         st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
         st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
-
-       
+    
         # ✅ total AFTER the loop
-         correct_count = sum(
+        correct_count = sum(
             1 for q in st.session_state.question_history if "✅ Correct" in q["feedback"]
         )
-        total = st.session_state.total_questions  # or use len(st.session_state.question_history)
-        
+        total = st.session_state.total_questions  # or len(...) if you prefer
+    
         st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
         score_percent = (correct_count / total) * 100 if total else 0
         st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+
 
 
         if correct_count == total:
