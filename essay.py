@@ -329,8 +329,8 @@ elif mode == "Practice Quiz":
         
         st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
         st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
-        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} ({score_percent:.1f}%)")
-        st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} 
+        st.markdown(f"- 🧮 Score Percentage:** `{score_percent:.1f}%`")
 
 
 
@@ -372,10 +372,10 @@ Data:
             message = f"""Quiz Summary Report
             
             Course: {st.session_state.selected_course}
-            Final Score: {correct_count} / {total} ({score_percent:.1f}%)
-            st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
-            Time Taken: {formatted_time}
-            Avg Time/Question: {avg_time:.1f} seconds
+          #  Final Score: {correct_count} / {total} ({score_percent:.1f}%)
+          #  st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+          #  Time Taken: {formatted_time}
+          #  Avg Time/Question: {avg_time:.1f} seconds
             
             
             {summary_text}
