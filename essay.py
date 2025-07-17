@@ -327,12 +327,11 @@ elif mode == "Practice Quiz":
         else:
             st.info("You're getting there! Use the feedback above to grow stronger. 💪")
         
+
         st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
         st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
-        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} 
-        st.markdown(f"- 🧮 Score Percentage:** `{score_percent:.1f}%`")
-
-
+        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} ({score_percent:.1f}%)")
+        st.markdown(f"- 🧮 **Score Percentage:** `{score_percent:.1f}%`")
 
 
         
