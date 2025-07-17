@@ -316,6 +316,10 @@ elif mode == "Practice Quiz":
 
        
         # ✅ total AFTER the loop
+        correct_count = sum(
+            1 for q in st.session_state.question_history if "✅ Correct" in q["feedback"]
+        )
+
         st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
         score_percent = (correct_count / total) * 100 if total else 0
         st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
