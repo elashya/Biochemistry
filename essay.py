@@ -321,7 +321,9 @@ elif mode == "Practice Quiz":
         
         for i, entry in enumerate(st.session_state.question_history, 1):
             feedback = entry["feedback"]
-            is_correct = feedback.strip().lower().startswith("**correct")
+            import re
+            is_correct = feedback.strip().startswith("✅")
+
         
             if is_correct:
                 correct_count += 1
