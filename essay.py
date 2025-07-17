@@ -311,22 +311,13 @@ elif mode == "Practice Quiz":
         formatted_time = str(duration).split('.')[0]
         avg_time = total_seconds / st.session_state.total_questions if st.session_state.total_questions else 0
     
-        st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
-        st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
-        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} ({score_percent:.1f}%)")
-        st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+
     
         # ✅ total AFTER the loop
         correct_count = sum(
             1 for q in st.session_state.question_history if "✅ Correct" in q["feedback"]
         )
-        total = st.session_state.total_questions  # or len(...) if you prefer
-    
-       # st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
-       # score_percent = (correct_count / total) * 100 if total else 0
-       # st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
-
-
+        total = st.session_state.total_questions 
 
         if correct_count == total:
             st.success("🏆 Amazing! You nailed it.")
@@ -334,6 +325,11 @@ elif mode == "Practice Quiz":
             st.info("Keep going—each effort is progress, and I'm here to support you! 🍀")
         else:
             st.info("You're getting there! Use the feedback above to grow stronger. 💪")
+
+        st.markdown(f"- ⏱️ **Total Time:** {formatted_time}")
+        st.markdown(f"- 🕒 **Avg Time per Question:** {avg_time:.1f} seconds")
+        st.markdown(f"- 🧮 **Final Score:** {correct_count} / {total} ({score_percent:.1f}%)")
+        st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
 
         with st.spinner("🧠 Analyzing your overall performance..."):
             insights_prompt = f"""
