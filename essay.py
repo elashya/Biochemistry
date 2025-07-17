@@ -367,20 +367,20 @@ Data:
             st.markdown(summary_text)
 
             score_percent = (correct_count / total) * 100 if total else 0
+
             subject = f"Quiz Result - {st.session_state.selected_course} ({score_percent:.1f}%)"
-            message = f"""Quiz Summary Report
+            message = f"""📊 Quiz Summary Report
             
             Course: {st.session_state.selected_course}
             Final Score: {correct_count} / {total} ({score_percent:.1f}%)
-            st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+            Score Percentage: {score_percent:.1f}%
             Time Taken: {formatted_time}
             Avg Time/Question: {avg_time:.1f} seconds
             
-            
+            Detailed Feedback:
             {summary_text}
             """
             send_brevo_email(subject, message)
-
 
 
         st.markdown("---")
