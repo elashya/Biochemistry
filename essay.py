@@ -380,7 +380,8 @@ Data:
             st.markdown("### 🧾 Detailed Feedback Summary")
             st.markdown(summary_text)
 
-            subject = f"Quiz Result - {st.session_state.selected_course}"
+            score_percent = (correct_count / total) * 100 if total else 0
+            subject = f"Quiz Result - {st.session_state.selected_course} ({score_percent:.1f}%)"
             message = f"""Quiz Summary Report
             
             Course: {st.session_state.selected_course}
