@@ -320,9 +320,9 @@ elif mode == "Practice Quiz":
         )
         total = st.session_state.total_questions  # or len(...) if you prefer
     
-        st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
-        score_percent = (correct_count / total) * 100 if total else 0
-        st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
+       # st.markdown(f"### 🧮 Final Score: **{correct_count} / {total}**")
+       # score_percent = (correct_count / total) * 100 if total else 0
+       # st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
 
 
 
@@ -370,6 +370,7 @@ Data:
             
             Course: {st.session_state.selected_course}
             Final Score: {correct_count} / {total} ({score_percent:.1f}%)
+            st.markdown(f"**Score Percentage:** `{score_percent:.1f}%`")
             Time Taken: {formatted_time}
             Avg Time/Question: {avg_time:.1f} seconds
             
