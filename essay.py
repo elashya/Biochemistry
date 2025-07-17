@@ -323,15 +323,12 @@ elif mode == "Practice Quiz":
             import re
             is_correct = feedback.strip().lower().startswith("**correct")
 
-
-
             if is_correct:
                 correct_count += 1
             summary_data.append({
                 "Q#": i,
                 "Question (excerpt)": entry["question"][:60] + "...",
                 "Answer": entry["answer"],
-                "Correct?": "✅" if is_correct else "❌",
                 "Tutor Feedback": feedback[:100] + "..." if len(feedback) > 100 else feedback
             })
 
