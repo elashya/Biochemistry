@@ -8,48 +8,38 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Parses a GPT response and:
-    - Detects block and inline LaTeX
-    - Cleans \text{} and malformed code
-    - Renders inline and block LaTeX properly
-    - Shows clean markdown for regular text
+    Properly render Markdown with LaTeX inline (\\(...\\)) and block (\\[...\\] or $$...$$) expressions.
     """
-    import re
-
-    # Replace \text{...} → ...
-    text = re.sub(r"\\text\{([^}]*)\}", r"\1", text)
-
-    # Normalize double-backslashes
+    # Replace double backslashes if they exist
     text = text.replace("\\\\", "\\")
 
-    # Split full response by block lines
-    block_latex = re.compile(r"^\s*\\\[(.*?)\\\]\s*$", re.DOTALL)
-    lines = text.split("\n")
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
+    # Regex pattern to detect LaTeX blocks and inline expressions
+    pattern = r"(\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$)"
+    matches = list(re.finditer(pattern, text, re.DOTALL))
+    
+    last_end = 0
+    for match in matches:
+        start, end = match.span()
 
-        # Block LaTeX like \[ ... \]
-        if block_latex.match(line):
-            latex_expr = block_latex.match(line).group(1).strip()
-            st.latex(latex_expr)
+        # Print plain markdown before match
+        if last_end < start:
+            before = text[last_end:start].strip()
+            if before:
+                st.markdown(before)
 
-        # Inline LaTeX: \( ... \)
-        elif r"\(" in line and r"\)" in line:
-            # Split inline LaTeX and render around it
-            parts = re.split(r"(\\\(.*?\\\))", line)
-            final_line = ""
-            for part in parts:
-                if part.startswith(r"\(") and part.endswith(r"\)"):
-                    expr = part[2:-2].strip()
-                    st.write(f"${expr}$", unsafe_allow_html=True)
-                else:
-                    st.write(part, unsafe_allow_html=True)
+        # Print LaTeX block
+        latex_expr = match.group()
+        cleaned_expr = latex_expr.strip()[2:-2] if latex_expr.startswith(("\\[", "$$")) else latex_expr.strip()[2:-2]
+        st.latex(cleaned_expr)
 
-        # Normal line
-        else:
-            st.markdown(line)
+        last_end = end
+
+    # Print any remaining text after last match
+    if last_end < len(text):
+        tail = text[last_end:].strip()
+        if tail:
+            st.markdown(tail)
+
 
 
 
