@@ -8,24 +8,46 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Detects and renders LaTeX expressions written like: 
-    [ \text{...} ] or [\ce{...}] and shows them using st.latex().
+    Detects and renders LaTeX expressions written like:
+    [ \text{...} ], $$...$$, or \( ... \), and shows them using st.latex().
     The rest of the text is rendered using st.markdown().
     """
     import re
 
-    # Find all LaTeX expressions in square brackets
-    latex_matches = re.findall(r"\[\s*(\\(?:text|ce).*?)\s*\]", text)
+    # Patterns to detect LaTeX expressions
+    patterns = [
+        r"\[\s*(\\(?:text|ce).*?)\s*\]",     # [\text{...}]
+        r"\$\$(.*?)\$\$",                   # $$ ... $$
+        r"\\\((.*?)\\\)"                    # \( ... \)
+    ]
 
-    # Split the text into parts based on LaTeX chunks
-    parts = re.split(r"\[\s*\\(?:text|ce).*?\s*\]", text)
+    # Combine all matches
+    matches = []
+    for pattern in patterns:
+        matches.extend(re.finditer(pattern, text, re.DOTALL))
 
-    # Interleave and render
-    for i, part in enumerate(parts):
-        if part.strip():
-            st.markdown(part.strip())
-        if i < len(latex_matches):
-            st.latex(latex_matches[i].strip())
+    # Sort by start position
+    matches.sort(key=lambda m: m.start())
+
+    last_index = 0
+    for match in matches:
+        # Text before the LaTeX expression
+        before = text[last_index:match.start()]
+        if before.strip():
+            st.markdown(before.strip())
+
+        # The LaTeX content
+        latex_expr = match.group(1).strip()
+        st.latex(latex_expr)
+
+        last_index = match.end()
+
+    # Render remaining text
+    if last_index < len(text):
+        remainder = text[last_index:]
+        if remainder.strip():
+            st.markdown(remainder.strip())
+
 
 
 RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
