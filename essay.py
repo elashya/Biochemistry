@@ -6,7 +6,7 @@ from datetime import datetime
 import re
 import requests
 
-def render_clean_latex_blocks(text):
+def render_markdown_with_latex_blocks(text):
     """
     Renders LaTeX blocks (inline or block) like:
     - \( 2H_2 + O_2 \rightarrow 2H_2O \)
