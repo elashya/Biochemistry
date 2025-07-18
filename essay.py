@@ -8,24 +8,24 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Finds LaTeX-style blocks written like [\text{...}] and renders them using st.latex().
-    Displays the remaining text using st.markdown().
+    Detects and renders LaTeX expressions written like: 
+    [ \text{...} ] or [\ce{...}] and shows them using st.latex().
+    The rest of the text is rendered using st.markdown().
     """
     import re
 
-    # Find all LaTeX blocks like [ \text{...} ]
-    latex_blocks = re.findall(r"\[\s*(\\text.*?[^\\])\s*\]", text)
+    # Find all LaTeX expressions in square brackets
+    latex_matches = re.findall(r"\[\s*(\\(?:text|ce).*?)\s*\]", text)
 
-    # Remove LaTeX blocks from the main text
-    cleaned_text = re.sub(r"\[\s*\\text.*?[^\\]\s*\]", "", text)
+    # Split the text into parts based on LaTeX chunks
+    parts = re.split(r"\[\s*\\(?:text|ce).*?\s*\]", text)
 
-    # Render the text without LaTeX parts
-    if cleaned_text.strip():
-        st.markdown(cleaned_text.strip())
-
-    # Then render each LaTeX block properly
-    for latex_expr in latex_blocks:
-        st.latex(latex_expr.strip())
+    # Interleave and render
+    for i, part in enumerate(parts):
+        if part.strip():
+            st.markdown(part.strip())
+        if i < len(latex_matches):
+            st.latex(latex_matches[i].strip())
 
 
 RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
