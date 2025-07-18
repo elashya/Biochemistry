@@ -8,50 +8,49 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Detects and renders LaTeX expressions (even malformed ones using \text{})
-    and displays the rest using st.markdown().
+    Handles malformed LaTeX or chemistry equations from ChatGPT.
+    - Cleans \text{...}
+    - Converts [ \LaTeX ] into proper \( ... \)
+    - Supports \( ... \), $$ ... $$ blocks
+    - Falls back to markdown for other content
     """
     import re
 
-    # Normalize backslashes and strip extra space
-    text = text.replace('\\\\', '\\')
+    # STEP 1: Normalize backslashes and fix common errors
+    text = text.replace('\\\\', '\\')                   # double slashes → single
+    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)    # \text{H_2} → H_2
+    text = re.sub(r"\\rightarrow", r"\\rightarrow", text)  # \rightarrow → \rightarrow
+    text = re.sub(r"\[\s*(.*?)\s*\]", r"\\(\1\\)", text)   # [ ... ] → \( ... \)
 
-    # Replace \text{X} with X to avoid rendering errors
-    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)
-
-    # Handle [ \LaTeX ] format by converting it to \( ... \)
-    text = re.sub(r"\[\s*(\\?.*?)\s*\]", r"\\(\1\\)", text)
-
-    # Find all LaTeX blocks: \( ... \), $$ ... $$
+    # STEP 2: Extract all math blocks: \( ... \) or $$ ... $$
     pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
     matches = list(re.finditer(pattern, text, re.DOTALL))
-    last_end = 0
+    last = 0
 
     for match in matches:
         start, end = match.start(), match.end()
 
-        # Render normal markdown before the match
-        if last_end < start:
-            before = text[last_end:start].strip()
-            if before:
-                st.markdown(before)
+        # Render text before the match
+        if last < start:
+            pre_text = text[last:start].strip()
+            if pre_text:
+                st.markdown(pre_text)
 
-        # Extract LaTeX expression
+        # Render the LaTeX
         latex_expr = match.group(1) or match.group(2)
         if latex_expr:
             try:
                 st.latex(latex_expr.strip())
-            except Exception as e:
-                st.markdown(f"⚠️ LaTeX render error: `{latex_expr}`")
+            except Exception:
+                st.markdown(f"⚠️ `{latex_expr.strip()}`")  # fallback if invalid
 
-        last_end = end
+        last = end
 
-    # Render the remaining part
-    if last_end < len(text):
-        after = text[last_end:].strip()
-        if after:
-            st.markdown(after)
-
+    # STEP 3: Remaining text
+    if last < len(text):
+        post_text = text[last:].strip()
+        if post_text:
+            st.markdown(post_text)
 
 
 
