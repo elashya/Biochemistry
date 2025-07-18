@@ -8,17 +8,21 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Renders LaTeX blocks (inline or block) like:
-    - \( 2H_2 + O_2 \rightarrow 2H_2O \)
-    - $$ 2H_2 + O_2 \rightarrow 2H_2O $$
-    The rest of the text is shown with st.markdown().
+    Detects and renders LaTeX expressions (even malformed ones using \text{})
+    and displays the rest using st.markdown().
     """
     import re
 
-    # Clean double backslashes
-    text = text.replace("\\\\", "\\")
+    # Normalize backslashes and strip extra space
+    text = text.replace('\\\\', '\\')
 
-    # Find all LaTeX blocks
+    # Replace \text{X} with X to avoid rendering errors
+    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)
+
+    # Handle [ \LaTeX ] format by converting it to \( ... \)
+    text = re.sub(r"\[\s*(\\?.*?)\s*\]", r"\\(\1\\)", text)
+
+    # Find all LaTeX blocks: \( ... \), $$ ... $$
     pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
     matches = list(re.finditer(pattern, text, re.DOTALL))
     last_end = 0
@@ -26,20 +30,28 @@ def render_markdown_with_latex_blocks(text):
     for match in matches:
         start, end = match.start(), match.end()
 
-        # Render text before match
+        # Render normal markdown before the match
         if last_end < start:
-            st.markdown(text[last_end:start].strip())
+            before = text[last_end:start].strip()
+            if before:
+                st.markdown(before)
 
-        # Render LaTeX content
+        # Extract LaTeX expression
         latex_expr = match.group(1) or match.group(2)
         if latex_expr:
-            st.latex(latex_expr.strip())
+            try:
+                st.latex(latex_expr.strip())
+            except Exception as e:
+                st.markdown(f"⚠️ LaTeX render error: `{latex_expr}`")
 
         last_end = end
 
-    # Render any remaining text
+    # Render the remaining part
     if last_end < len(text):
-        st.markdown(text[last_end:].strip())
+        after = text[last_end:].strip()
+        if after:
+            st.markdown(after)
+
 
 
 
