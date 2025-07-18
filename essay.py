@@ -8,48 +8,44 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Detects and renders LaTeX expressions in various formats:
-    - [ \text{...} ]  or  [\ce{...}]
-    - $$...$$
+    Finds and separates LaTeX-style expressions and renders them with st.latex().
+    Renders the rest using st.markdown(). Supports:
     - \( ... \)
-    - Raw LaTeX blocks starting with backslashes (e.g., \text{...})
-    Displays the rest of the text with st.markdown().
+    - $$ ... $$
+    - [ \text{...} ]
+    - Raw backslash LaTeX starting with \text{...}
     """
     import re
 
-    # STEP 1: Extract all LaTeX-like blocks
-    latex_patterns = [
-        r"\[\s*(\\(?:text|ce|frac|chem|begin|end).*?)\s*\]",  # [\text{...}]
-        r"\$\$(.*?)\$\$",                                     # $$ ... $$
-        r"\\\((.*?)\\\)",                                     # \( ... \)
-        r"(?<!\$)(\\(?:text|ce|frac|begin|end)[^$]+)"         # raw \text{} or \frac{}{}
-    ]
+    # Combine all possible LaTeX formats into one regex
+    pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$|\[\s*(\\text.*?|\\ce.*?)\s*\]|(\\text\{.*?\})"
 
-    # Merge all patterns into one combined matcher
-    combined_pattern = "|".join(f"({p})" for p in latex_patterns)
-    matches = list(re.finditer(combined_pattern, text, re.DOTALL))
-
+    matches = list(re.finditer(pattern, text, re.DOTALL))
     last_end = 0
+
     for match in matches:
         start, end = match.start(), match.end()
-        # Render text before LaTeX block
-        if start > last_end:
-            st.markdown(text[last_end:start].strip())
 
-        # Render LaTeX content
+        # Render the text before the LaTeX
+        if last_end < start:
+            before = text[last_end:start].strip()
+            if before:
+                st.markdown(before)
+
+        # Render the LaTeX expression
         for group in match.groups():
             if group:
-                try:
-                    st.latex(group.strip())
-                except:
-                    st.markdown(f"`{group.strip()}`")  # fallback
-
+                st.latex(group.strip())
                 break
+
         last_end = end
 
-    # Render the remainder
+    # Render anything left at the end
     if last_end < len(text):
-        st.markdown(text[last_end:].strip())
+        after = text[last_end:].strip()
+        if after:
+            st.markdown(after)
+
 
 
 
