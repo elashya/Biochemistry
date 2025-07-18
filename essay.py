@@ -8,45 +8,49 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Detects and renders LaTeX expressions written like:
-    [ \text{...} ], $$...$$, or \( ... \), and shows them using st.latex().
-    The rest of the text is rendered using st.markdown().
+    Detects and renders LaTeX expressions in various formats:
+    - [ \text{...} ]  or  [\ce{...}]
+    - $$...$$
+    - \( ... \)
+    - Raw LaTeX blocks starting with backslashes (e.g., \text{...})
+    Displays the rest of the text with st.markdown().
     """
     import re
 
-    # Patterns to detect LaTeX expressions
-    patterns = [
-        r"\[\s*(\\(?:text|ce).*?)\s*\]",     # [\text{...}]
-        r"\$\$(.*?)\$\$",                   # $$ ... $$
-        r"\\\((.*?)\\\)"                    # \( ... \)
+    # STEP 1: Extract all LaTeX-like blocks
+    latex_patterns = [
+        r"\[\s*(\\(?:text|ce|frac|chem|begin|end).*?)\s*\]",  # [\text{...}]
+        r"\$\$(.*?)\$\$",                                     # $$ ... $$
+        r"\\\((.*?)\\\)",                                     # \( ... \)
+        r"(?<!\$)(\\(?:text|ce|frac|begin|end)[^$]+)"         # raw \text{} or \frac{}{}
     ]
 
-    # Combine all matches
-    matches = []
-    for pattern in patterns:
-        matches.extend(re.finditer(pattern, text, re.DOTALL))
+    # Merge all patterns into one combined matcher
+    combined_pattern = "|".join(f"({p})" for p in latex_patterns)
+    matches = list(re.finditer(combined_pattern, text, re.DOTALL))
 
-    # Sort by start position
-    matches.sort(key=lambda m: m.start())
-
-    last_index = 0
+    last_end = 0
     for match in matches:
-        # Text before the LaTeX expression
-        before = text[last_index:match.start()]
-        if before.strip():
-            st.markdown(before.strip())
+        start, end = match.start(), match.end()
+        # Render text before LaTeX block
+        if start > last_end:
+            st.markdown(text[last_end:start].strip())
 
-        # The LaTeX content
-        latex_expr = match.group(1).strip()
-        st.latex(latex_expr)
+        # Render LaTeX content
+        for group in match.groups():
+            if group:
+                try:
+                    st.latex(group.strip())
+                except:
+                    st.markdown(f"`{group.strip()}`")  # fallback
 
-        last_index = match.end()
+                break
+        last_end = end
 
-    # Render remaining text
-    if last_index < len(text):
-        remainder = text[last_index:]
-        if remainder.strip():
-            st.markdown(remainder.strip())
+    # Render the remainder
+    if last_end < len(text):
+        st.markdown(text[last_end:].strip())
+
 
 
 
