@@ -6,6 +6,27 @@ from datetime import datetime
 import re
 import requests
 
+def render_markdown_with_latex_blocks(text):
+    """
+    Finds LaTeX-style blocks written like [\text{...}] and renders them using st.latex().
+    Displays the remaining text using st.markdown().
+    """
+    import re
+
+    # Find all LaTeX blocks like [ \text{...} ]
+    latex_blocks = re.findall(r"\[\s*(\\text.*?[^\\])\s*\]", text)
+
+    # Remove LaTeX blocks from the main text
+    cleaned_text = re.sub(r"\[\s*\\text.*?[^\\]\s*\]", "", text)
+
+    # Render the text without LaTeX parts
+    if cleaned_text.strip():
+        st.markdown(cleaned_text.strip())
+
+    # Then render each LaTeX block properly
+    for latex_expr in latex_blocks:
+        st.latex(latex_expr.strip())
+
 
 RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
 
@@ -193,7 +214,7 @@ if mode == "Practice Essay":
                         st.session_state.essay_submitted = True
                         st.success("✅ Essay evaluated successfully!")
                         st.markdown("### 📋 Feedback")
-                        st.markdown(feedback)
+                        render_markdown_with_latex_blocks(feedback)
 
                         subject = "Essay Practice Result - AI Entrance"
                         message = f"""Essay Prompt:
@@ -281,7 +302,7 @@ elif mode == "Practice Interview":
                         st.session_state.interview_submitted = True
                         st.success("✅ Interview evaluated successfully!")
                         st.markdown("### 📋 Feedback")
-                        st.markdown(feedback)
+                        render_markdown_with_latex_blocks(feedback)
 
                         subject = "Interview Practice Result - AI Entrance"
                         message = f"""Interview Question:
@@ -484,7 +505,7 @@ Do NOT include the answer or hint.
                 feedback = messages.data[0].content[0].text.value.strip()
 
                 st.success("✅ Feedback:")
-                st.markdown(feedback)
+                render_markdown_with_latex_blocks(feedback)
 
                 st.session_state.question_history.append({
                     "question": st.session_state.current_question,
