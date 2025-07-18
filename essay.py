@@ -6,60 +6,40 @@ from datetime import datetime
 import re
 import requests
 
-def render_markdown_with_latex_blocks(text):
+def render_clean_latex_blocks(text):
     """
-    Extracts and renders LaTeX blocks from text (in any format) using st.latex()
-    and displays remaining text with st.markdown().
-    Supported LaTeX formats:
-    - \( ... \)
-    - $$ ... $$
-    - [ \text{...} ]
-    - \text{...}
-    Handles double-escaped backslashes and formatting gaps.
+    Renders LaTeX blocks (inline or block) like:
+    - \( 2H_2 + O_2 \rightarrow 2H_2O \)
+    - $$ 2H_2 + O_2 \rightarrow 2H_2O $$
+    The rest of the text is shown with st.markdown().
     """
     import re
 
-    # Normalize double-escaped LaTeX from GPT (\text -> \text)
-    text = text.replace('\\\\', '\\')
+    # Clean double backslashes
+    text = text.replace("\\\\", "\\")
 
-    # Combined pattern for LaTeX blocks
-    pattern = r"""
-        \\[(.*?)\\]                 |   # \( ... \)
-        \$\$(.*?)\$\$              |   # $$ ... $$
-        \[\s*(\\text.*?|\\ce.*?)\s*\] | # [ \text{...} ]
-        (\\text\{.*?\})                # raw \text{...}
-    """
-
-    matches = list(re.finditer(pattern, text, re.VERBOSE | re.DOTALL))
-    last = 0
+    # Find all LaTeX blocks
+    pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
+    matches = list(re.finditer(pattern, text, re.DOTALL))
+    last_end = 0
 
     for match in matches:
         start, end = match.start(), match.end()
 
-        # Text before LaTeX block
-        if last < start:
-            before = text[last:start].strip()
-            if before:
-                st.markdown(before)
+        # Render text before match
+        if last_end < start:
+            st.markdown(text[last_end:start].strip())
 
-        # Render the first matched group that exists
-        for group in match.groups():
-            if group:
-                try:
-                    st.latex(group.strip())
-                except:
-                    st.markdown(f"`{group.strip()}`")  # fallback
-                break
+        # Render LaTeX content
+        latex_expr = match.group(1) or match.group(2)
+        if latex_expr:
+            st.latex(latex_expr.strip())
 
-        last = end
+        last_end = end
 
-    # Remaining text after last match
-    if last < len(text):
-        after = text[last:].strip()
-        if after:
-            st.markdown(after)
-
-
+    # Render any remaining text
+    if last_end < len(text):
+        st.markdown(text[last_end:].strip())
 
 
 
