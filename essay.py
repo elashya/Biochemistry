@@ -8,43 +8,57 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Finds and separates LaTeX-style expressions and renders them with st.latex().
-    Renders the rest using st.markdown(). Supports:
+    Extracts and renders LaTeX blocks from text (in any format) using st.latex()
+    and displays remaining text with st.markdown().
+    Supported LaTeX formats:
     - \( ... \)
     - $$ ... $$
     - [ \text{...} ]
-    - Raw backslash LaTeX starting with \text{...}
+    - \text{...}
+    Handles double-escaped backslashes and formatting gaps.
     """
     import re
 
-    # Combine all possible LaTeX formats into one regex
-    pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$|\[\s*(\\text.*?|\\ce.*?)\s*\]|(\\text\{.*?\})"
+    # Normalize double-escaped LaTeX from GPT (\text -> \text)
+    text = text.replace('\\\\', '\\')
 
-    matches = list(re.finditer(pattern, text, re.DOTALL))
-    last_end = 0
+    # Combined pattern for LaTeX blocks
+    pattern = r"""
+        \\[(.*?)\\]                 |   # \( ... \)
+        \$\$(.*?)\$\$              |   # $$ ... $$
+        \[\s*(\\text.*?|\\ce.*?)\s*\] | # [ \text{...} ]
+        (\\text\{.*?\})                # raw \text{...}
+    """
+
+    matches = list(re.finditer(pattern, text, re.VERBOSE | re.DOTALL))
+    last = 0
 
     for match in matches:
         start, end = match.start(), match.end()
 
-        # Render the text before the LaTeX
-        if last_end < start:
-            before = text[last_end:start].strip()
+        # Text before LaTeX block
+        if last < start:
+            before = text[last:start].strip()
             if before:
                 st.markdown(before)
 
-        # Render the LaTeX expression
+        # Render the first matched group that exists
         for group in match.groups():
             if group:
-                st.latex(group.strip())
+                try:
+                    st.latex(group.strip())
+                except:
+                    st.markdown(f"`{group.strip()}`")  # fallback
                 break
 
-        last_end = end
+        last = end
 
-    # Render anything left at the end
-    if last_end < len(text):
-        after = text[last_end:].strip()
+    # Remaining text after last match
+    if last < len(text):
+        after = text[last:].strip()
         if after:
             st.markdown(after)
+
 
 
 
