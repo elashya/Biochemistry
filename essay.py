@@ -8,68 +8,31 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Renders LaTeX in any format from ChatGPT responses, including:
-    - \( ... \)
-    - $$ ... $$
-    - [ \text{...} ]
-    - raw unwrapped formulas like "2H_2 + O_2 -> 2H_2O"
+    Parses a GPT response and:
+    - Detects LaTeX-style lines
+    - Cleans \text{}
+    - Renders math with st.latex()
+    - Everything else with st.markdown()
     """
-
     import re
 
-    # STEP 1: Normalize and clean \text{}
-    text = text.replace('\\\\', '\\')
-    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)
-    text = re.sub(r"\\rightarrow", r"\\rightarrow", text)
-    text = re.sub(r"\[\s*(.*?)\s*\]", r"\\(\1\\)", text)
+    # Normalize escape characters
+    text = text.replace("\\\\", "\\")
+    text = re.sub(r"\\text\{([^}]*)\}", r"\1", text)
 
-    # STEP 2: Extract LaTeX blocks
-    pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
-    matches = list(re.finditer(pattern, text, re.DOTALL))
-    last = 0
-
-    for match in matches:
-        start, end = match.start(), match.end()
-
-        # Render non-math text before match
-        if last < start:
-            before = text[last:start].strip()
-            render_text_with_inline_equations(before)
-
-        latex_expr = match.group(1) or match.group(2)
-        if latex_expr:
-            st.latex(latex_expr.strip())
-
-        last = end
-
-    # Remaining text
-    if last < len(text):
-        remaining = text[last:].strip()
-        render_text_with_inline_equations(remaining)
-
-
-def render_text_with_inline_equations(text):
-    """
-    Looks for standalone lines that appear to be math and renders them with st.latex().
-    Otherwise uses st.markdown().
-    """
-
-    import re
-
-    # Split by lines
+    # Split into lines to check each line
     lines = text.split("\n")
     for line in lines:
-        clean = line.strip()
-        # If line looks like a formula (mathy), render as LaTeX
-        if re.search(r"[0-9]+[A-Za-z_]+|->|\\rightarrow|=", clean) and not clean.startswith("*"):
-            # Clean any \text{}
-            clean = re.sub(r"\\text\{([^}]+)\}", r"\1", clean)
+        stripped = line.strip()
+
+        # If the line looks like a formula (has ->, =, +, _2, or latex symbols), treat as LaTeX
+        if re.search(r"[A-Za-z0-9_]+\(.*?\)|[_^]|->|\\rightarrow|=|\+|\\ce|\\frac", stripped) and not stripped.startswith("- "):
             try:
-                st.latex(clean)
+                st.latex(stripped)
             except:
-                st.markdown(f"⚠️ `{clean}`")
-        else:
-            st.markdown(clean)
+                st.markdown(f"⚠️ `{stripped}`")  # fallback if LaTeX breaks
+        elif stripped:
+            st.markdown(stripped)
 
 
 
