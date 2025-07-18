@@ -8,21 +8,22 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Handles malformed LaTeX or chemistry equations from ChatGPT.
-    - Cleans \text{...}
-    - Converts [ \LaTeX ] into proper \( ... \)
-    - Supports \( ... \), $$ ... $$ blocks
-    - Falls back to markdown for other content
+    Renders LaTeX in any format from ChatGPT responses, including:
+    - \( ... \)
+    - $$ ... $$
+    - [ \text{...} ]
+    - raw unwrapped formulas like "2H_2 + O_2 -> 2H_2O"
     """
+
     import re
 
-    # STEP 1: Normalize backslashes and fix common errors
-    text = text.replace('\\\\', '\\')                   # double slashes → single
-    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)    # \text{H_2} → H_2
-    text = re.sub(r"\\rightarrow", r"\\rightarrow", text)  # \rightarrow → \rightarrow
-    text = re.sub(r"\[\s*(.*?)\s*\]", r"\\(\1\\)", text)   # [ ... ] → \( ... \)
+    # STEP 1: Normalize and clean \text{}
+    text = text.replace('\\\\', '\\')
+    text = re.sub(r"\\text\{([^}]+)\}", r"\1", text)
+    text = re.sub(r"\\rightarrow", r"\\rightarrow", text)
+    text = re.sub(r"\[\s*(.*?)\s*\]", r"\\(\1\\)", text)
 
-    # STEP 2: Extract all math blocks: \( ... \) or $$ ... $$
+    # STEP 2: Extract LaTeX blocks
     pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
     matches = list(re.finditer(pattern, text, re.DOTALL))
     last = 0
@@ -30,27 +31,46 @@ def render_markdown_with_latex_blocks(text):
     for match in matches:
         start, end = match.start(), match.end()
 
-        # Render text before the match
+        # Render non-math text before match
         if last < start:
-            pre_text = text[last:start].strip()
-            if pre_text:
-                st.markdown(pre_text)
+            before = text[last:start].strip()
+            render_text_with_inline_equations(before)
 
-        # Render the LaTeX
         latex_expr = match.group(1) or match.group(2)
         if latex_expr:
-            try:
-                st.latex(latex_expr.strip())
-            except Exception:
-                st.markdown(f"⚠️ `{latex_expr.strip()}`")  # fallback if invalid
+            st.latex(latex_expr.strip())
 
         last = end
 
-    # STEP 3: Remaining text
+    # Remaining text
     if last < len(text):
-        post_text = text[last:].strip()
-        if post_text:
-            st.markdown(post_text)
+        remaining = text[last:].strip()
+        render_text_with_inline_equations(remaining)
+
+
+def render_text_with_inline_equations(text):
+    """
+    Looks for standalone lines that appear to be math and renders them with st.latex().
+    Otherwise uses st.markdown().
+    """
+
+    import re
+
+    # Split by lines
+    lines = text.split("\n")
+    for line in lines:
+        clean = line.strip()
+        # If line looks like a formula (mathy), render as LaTeX
+        if re.search(r"[0-9]+[A-Za-z_]+|->|\\rightarrow|=", clean) and not clean.startswith("*"):
+            # Clean any \text{}
+            clean = re.sub(r"\\text\{([^}]+)\}", r"\1", clean)
+            try:
+                st.latex(clean)
+            except:
+                st.markdown(f"⚠️ `{clean}`")
+        else:
+            st.markdown(clean)
+
 
 
 RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
