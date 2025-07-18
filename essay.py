@@ -53,8 +53,6 @@ def render_markdown_with_latex_blocks(text):
             st.markdown(post_text)
 
 
-
-
 RECIPIENT_EMAIL = "ahmed03@hotmail.com"  
 
 def send_brevo_email(subject, message_text):
