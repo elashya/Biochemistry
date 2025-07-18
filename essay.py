@@ -401,11 +401,18 @@ Data:
             messages = client.beta.threads.messages.list(thread_id=st.session_state.quiz_thread_id)
             summary_text = messages.data[0].content[0].text.value
 
+            # Make sure this is all defined first
+            correct_count = sum(1 for q in st.session_state.question_history if "✅" in q["feedback"])
+            total = st.session_state.total_questions
+            score_percent = (correct_count / total) * 100 if total else 0
+            formatted_time = str(duration).split('.')[0]
+            avg_time = total_seconds / total if total else 0
+            
+            # Show feedback on screen
             st.markdown("### 🧾 Detailed Feedback Summary")
             st.markdown(summary_text)
-
-            score_percent = (correct_count / total) * 100 if total else 0
-
+            
+            # Build and send email
             subject = f"Quiz Result - {st.session_state.selected_course} ({score_percent:.1f}%)"
             message = f"""📊 Quiz Summary Report
             
@@ -419,6 +426,7 @@ Data:
             {summary_text}
             """
             send_brevo_email(subject, message)
+
 
 
         st.markdown("---")
