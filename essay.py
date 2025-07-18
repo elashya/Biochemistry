@@ -8,37 +8,38 @@ import requests
 
 def render_markdown_with_latex_blocks(text):
     """
-    Properly render Markdown with LaTeX inline (\\(...\\)) and block (\\[...\\] or $$...$$) expressions.
+    Renders clean LaTeX blocks in the text using \( ... \) or $$ ... $$.
+    Avoids rendering square-bracketed expressions like [ ... ].
     """
-    # Replace double backslashes if they exist
-    text = text.replace("\\\\", "\\")
+    import re
 
-    # Regex pattern to detect LaTeX blocks and inline expressions
-    pattern = r"(\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$)"
+    # Find all inline \( ... \) or block $$ ... $$
+    pattern = r"\\\((.*?)\\\)|\$\$(.*?)\$\$"
     matches = list(re.finditer(pattern, text, re.DOTALL))
-    
     last_end = 0
+
     for match in matches:
-        start, end = match.span()
+        start, end = match.start(), match.end()
 
-        # Print plain markdown before match
+        # Render regular markdown before match
         if last_end < start:
-            before = text[last_end:start].strip()
-            if before:
-                st.markdown(before)
+            part = text[last_end:start].strip()
+            if part:
+                st.markdown(part)
 
-        # Print LaTeX block
-        latex_expr = match.group()
-        cleaned_expr = latex_expr.strip()[2:-2] if latex_expr.startswith(("\\[", "$$")) else latex_expr.strip()[2:-2]
-        st.latex(cleaned_expr)
+        # Render LaTeX
+        latex_expr = match.group(1) or match.group(2)
+        if latex_expr:
+            st.latex(latex_expr.strip())
 
         last_end = end
 
-    # Print any remaining text after last match
+    # Render any remaining text
     if last_end < len(text):
-        tail = text[last_end:].strip()
-        if tail:
-            st.markdown(tail)
+        part = text[last_end:].strip()
+        if part:
+            st.markdown(part)
+
 
 
 
