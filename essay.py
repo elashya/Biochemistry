@@ -9,30 +9,48 @@ import requests
 def render_markdown_with_latex_blocks(text):
     """
     Parses a GPT response and:
-    - Detects LaTeX-style lines
-    - Cleans \text{}
-    - Renders math with st.latex()
-    - Everything else with st.markdown()
+    - Detects block and inline LaTeX
+    - Cleans \text{} and malformed code
+    - Renders inline and block LaTeX properly
+    - Shows clean markdown for regular text
     """
     import re
 
-    # Normalize escape characters
-    text = text.replace("\\\\", "\\")
+    # Replace \text{...} → ...
     text = re.sub(r"\\text\{([^}]*)\}", r"\1", text)
 
-    # Split into lines to check each line
+    # Normalize double-backslashes
+    text = text.replace("\\\\", "\\")
+
+    # Split full response by block lines
+    block_latex = re.compile(r"^\s*\\\[(.*?)\\\]\s*$", re.DOTALL)
     lines = text.split("\n")
     for line in lines:
-        stripped = line.strip()
+        line = line.strip()
+        if not line:
+            continue
 
-        # If the line looks like a formula (has ->, =, +, _2, or latex symbols), treat as LaTeX
-        if re.search(r"[A-Za-z0-9_]+\(.*?\)|[_^]|->|\\rightarrow|=|\+|\\ce|\\frac", stripped) and not stripped.startswith("- "):
-            try:
-                st.latex(stripped)
-            except:
-                st.markdown(f"⚠️ `{stripped}`")  # fallback if LaTeX breaks
-        elif stripped:
-            st.markdown(stripped)
+        # Block LaTeX like \[ ... \]
+        if block_latex.match(line):
+            latex_expr = block_latex.match(line).group(1).strip()
+            st.latex(latex_expr)
+
+        # Inline LaTeX: \( ... \)
+        elif r"\(" in line and r"\)" in line:
+            # Split inline LaTeX and render around it
+            parts = re.split(r"(\\\(.*?\\\))", line)
+            final_line = ""
+            for part in parts:
+                if part.startswith(r"\(") and part.endswith(r"\)"):
+                    expr = part[2:-2].strip()
+                    st.write(f"${expr}$", unsafe_allow_html=True)
+                else:
+                    st.write(part, unsafe_allow_html=True)
+
+        # Normal line
+        else:
+            st.markdown(line)
+
 
 
 
