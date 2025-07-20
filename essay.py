@@ -80,12 +80,13 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 APP_PIN = st.secrets["APP_PIN"]
 
 ASSISTANT_IDS = {
-    "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag",
-    "Interviewer": "asst_GgZ2Y3WrUrHMDyO1nsGC9N1D",
-    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",
-    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",
-    "Biology - Uni Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
-    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14"
+    "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",      
+    "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",     
+    "Semmelwise  - Bio": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
+    "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14",
+    "Debrecen - Chem": "asst_q04IFQBRID5LJxYPXBBfhFlx",
+    "Debrecen - Bio": "asst_Pp6HpUWNIXHLOhRmX89EddAx",
+    "Essay": "asst_XQQG6ntdnYNoNW8m222fAbag"
 }
 
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -445,8 +446,10 @@ Data:
     courses = {
         "Biology - SBI3U": ["Diversity of Living Things", "Evolution", "Genetic Processes", "Animals: Structure and Function", "Plants: Anatomy, Growth and Function"],
         "Biology - SBI4U": ["Biochemistry", "Metabolic Processes", "Molecular Genetics", "Homeostasis", "Population Dynamics"],
-        "Biology - Uni Exam": ["All topics"],
-        "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"]
+        "Chemistry - SCH3U": ["Matter & Bonding", "Chemical Reactions", "Quantities & Solutions", "Equilibrium", "Atomic Structure"],
+        "Semmelwise  - Bio": ["All topics"],
+        "Debrecen - Bio": ["All topics"],
+        "Debrecen - Chem": ["All topics"]
     }
 
     if not st.session_state.get("quiz_started", False):
