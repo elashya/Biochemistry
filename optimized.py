@@ -13,7 +13,7 @@ APP_PIN = st.secrets["APP_PIN"]
 ASSISTANT_IDS = {
     "Biology - SBI3U": "asst_QxWwAb8wjBkzUxHehzpmlp8Z",      
     "Biology - SBI4U": "asst_t9vrqxAau5LWqOSR9bmm1egb",     
-    "Biology - Uni Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
+    "Biology - Semmelwise Exam": "asst_6X4Btqc3rNXYyH0iwMZAHiau",
     "Chemistry - SCH3U": "asst_4RzhLQqUFGni8leY61N7Nw14",
     "Debrecen - Chem": "asst_q04IFQBRID5LJxYPXBBfhFlx",
     "Debrecen - Bio": "asst_Pp6HpUWNIXHLOhRmX89EddAx",
@@ -144,7 +144,7 @@ elif st.session_state.quiz_started:
     assistant_id = ASSISTANT_IDS.get(course)
 
     # Prompt logic
-    if course == "Biology - Uni Exam":
+    if course == "Biology - Semmelwise Exam":
         prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
 Course: {course}
@@ -159,6 +159,64 @@ D. Option 4
 Do NOT include answers or hints.
 Only one question per response.
 """
+
+
+    elif course == "Debrecen - Bio":
+        prompt = f"""
+    You are a senior Biology tutor preparing a student for the **University of Debrecen entrance exam (Dentistry D.M.D)**.
+    
+    🎯 Your task:
+    Generate and ask **one question at a time** using one of the following formats:
+    - Multiple-choice questions
+    - Short answers
+    - Definitions
+    - Simple calculations
+    - Fill-in-the-blank
+    - Diagram-labeling
+    
+    Topic: {', '.join(st.session_state.selected_units)}  
+    Question {idx+1} of {total}  
+    Do NOT include the answer or explanation.  
+    """
+    
+    elif course == "Debrecen - Chem":
+        prompt = f"""
+    You are a senior Chemistry tutor preparing a student for the **University of Debrecen entrance exam (Dentistry D.M.D)**.
+    
+    🎯 Your task:
+    Generate and ask **one chemistry question at a time** in any of these formats:
+    - Multiple-choice
+    - Fill-in-the-blank
+    - Definitions
+    - Calculations
+    
+    Topic: {', '.join(st.session_state.selected_units)}  
+    Question {idx+1} of {total}  
+    Only provide the question. No answer, no explanation.  
+    """
+    
+    else:
+        prompt = f"""
+    You are a kind and smart high school tutor helping a student prepare for real exams.
+    Course: {course}
+    Units: {', '.join(st.session_state.selected_units)}
+    Question {idx+1} of {total}
+    Generate a mix of question types:
+    - Multiple Choice [MCQ]
+    - Short Answer [Short Answer]
+    - Fill-in-the-blank [Fill-in-the-Blank]
+    Clearly label the type.
+    For MCQ, use format:
+    A. Option 1  
+    B. Option 2  
+    C. Option 3  
+    D. Option 4  
+    Do NOT include answers or hints.
+    Only one question per response.
+    """
+
+
+    
     else:
         prompt = f"""
 You are a kind and smart high school tutor helping a student prepare for real exams.
