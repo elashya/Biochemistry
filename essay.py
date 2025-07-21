@@ -518,13 +518,26 @@ Do NOT include the answer or hint.
         else:
             user_answer = st.text_area("Your Answer:", key=f"answer_{idx}")
 
+
         if st.button("📤 Submit Answer"):
             with st.spinner("💬 Evaluating your answer..."):
+        
+                # ✅ Clean and sanitize the answer
+                clean_answer = str(user_answer).strip() if user_answer else "No answer provided"
+        
+                # ✅ Optional: Check length
+                if len(clean_answer) > 1000:
+                    st.warning("⚠️ Your answer is too long. Please shorten it before submitting.")
+                    st.stop()
+        
+                # ✅ Send message to assistant with clean input
                 client.beta.threads.messages.create(
                     thread_id=thread_id,
                     role="user",
-                    content=f"The student's answer to Question {idx+1} is: {user_answer}. Please say if it's correct, give the correct answer, and explain why."
+                    content=f"The student's answer to Question {idx+1} is: {clean_answer}. Please say if it's correct, give the correct answer, and explain why."
                 )
+
+                
                 run = client.beta.threads.runs.create(thread_id=thread_id, assistant_id=assistant_id)
                 while run.status != "completed":
                     time.sleep(1)
