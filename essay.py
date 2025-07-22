@@ -232,7 +232,7 @@ if mode == "Practice Essay":
                         st.session_state.essay_submitted = True
                         st.success("✅ Essay evaluated successfully!")
                         st.markdown("### 📋 Feedback")
-                        render_markdown_with_latex_blocks(feedback)
+                        st.markdown(feedback)
 
                         subject = "Essay Practice Result - AI Entrance"
                         message = f"""Essay Prompt:
@@ -320,7 +320,7 @@ elif mode == "Practice Interview":
                         st.session_state.interview_submitted = True
                         st.success("✅ Interview evaluated successfully!")
                         st.markdown("### 📋 Feedback")
-                        render_markdown_with_latex_blocks(feedback)
+                        st.markdown(feedback)
 
                         subject = "Interview Practice Result - AI Entrance"
                         message = f"""Interview Question:
@@ -546,7 +546,7 @@ Do NOT include the answer or hint.
                 feedback = messages.data[0].content[0].text.value.strip()
 
                 st.success("✅ Feedback:")
-                render_markdown_with_latex_blocks(feedback)
+                st.markdown(feedback)
 
                 st.session_state.question_history.append({
                     "question": st.session_state.current_question,
