@@ -349,13 +349,16 @@ elif mode == "Practice Quiz":
         total_seconds = int(duration.total_seconds())
         formatted_time = str(duration).split('.')[0]
         avg_time = total_seconds / st.session_state.total_questions if st.session_state.total_questions else 0
-    
+
+        # === Score Calculation ===
+        total = st.session_state.total_questions
+        correct_count = sum(
+            1 for q in st.session_state.question_history if re.search(r"\b(✅|correct)\b", q["feedback"].lower())
+        )
+        score_percent = (correct_count / total) * 100 if total else 0
 
     
         # ✅ total AFTER the loop
-        correct_count = sum(
-            1 for q in st.session_state.question_history if "✅ Correct" in q["feedback"]
-        )
         total = st.session_state.total_questions 
         score_percent = (correct_count / total) * 100 if total else 0  # 🔁 Move this here first
         
@@ -403,7 +406,6 @@ Data:
             summary_text = messages.data[0].content[0].text.value
 
             # Make sure this is all defined first
-            correct_count = sum(1 for q in st.session_state.question_history if "✅" in q["feedback"])
             total = st.session_state.total_questions
             score_percent = (correct_count / total) * 100 if total else 0
             formatted_time = str(duration).split('.')[0]
