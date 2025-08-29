@@ -66,13 +66,14 @@ def _get_openai_client():
         return None
 
 def parse_json_from_content(content):
-    """Try to parse JSON from assistant content, handling fences or plain blocks."""
-    # Look for fenced JSON ```json ... ```
+    """Try to parse JSON from assistant content, handling fences, arrays, or objects."""
+    # Look for fenced JSON
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
     if fence_match:
         raw_json = fence_match.group(1).strip()
     else:
-        match = re.search(r'\{.*\}', content, re.DOTALL)
+        # Capture either array [ ... ] or object { ... }
+        match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
         raw_json = match.group(0) if match else None
 
     if not raw_json:
@@ -81,7 +82,11 @@ def parse_json_from_content(content):
         return None
 
     try:
-        return json.loads(raw_json)
+        data = json.loads(raw_json)
+        # If array, take first element
+        if isinstance(data, list) and len(data) > 0:
+            return data[0]
+        return data
     except Exception as e:
         st.error(f"Failed to parse JSON: {e}")
         st.code(raw_json)
@@ -117,25 +122,9 @@ Instruction:
 - Adapt difficulty: easier if student struggled recently, harder if doing well.
 - Style must match Cambridge IGCSE Physics 0625 past papers.
 
-Return ONLY a JSON object with:
-{{
-  "id": "unique-id",
-  "unit": "General Physics",
-  "subunit": "Length & time",
-  "type": "numerical | mcq | short_text",
-  "prompt": "Question text...",
-  "options": ["A","B","C","D"],  
-  "answer": 2.0,                 
-  "tolerance_abs": 0.1,
-  "units": "m/s^2",
-  "marks": 2,
-  "technique": ["Step 1","Step 2"],
-  "common_mistakes": ["Mistake 1","Mistake 2"],
-  "marking_scheme": "How marks are awarded",
-  "source": "Generated"
-}}
-JSON only, no prose.
+Return ONLY JSON.
 """
+
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
@@ -165,16 +154,9 @@ Type: {question['type']}
 Correct answer (for reference): {question.get('answer','')}
 Student answer: {user_answer}
 
-Return JSON only:
-{{
-  "awarded": 0..{max_marks},
-  "max_marks": {max_marks},
-  "correct": true/false,
-  "feedback": ["tip1","tip2"],
-  "expected": "expected value (optional)",
-  "correct_option": "B (optional)"
-}}
+Return ONLY JSON.
 """
+
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=payload)
