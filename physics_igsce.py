@@ -30,11 +30,15 @@ SYLLABUS_UNITS = {
 }
 
 # ---------------- Secrets / PIN ----------------
-def _get_secret(name, default=None):
+def _get_openai_client():
     try:
-        return st.secrets.get(name, default)
-    except Exception:
-        return os.getenv(name, default)
+        from openai import OpenAI
+        api_key = st.secrets["OPENAI_API_KEY"]
+        return OpenAI(api_key=api_key)
+    except Exception as e:
+        st.error(f"⚠️ OpenAI client init failed: {e}")
+        return None
+
 
 def require_pin():
     APP_PIN = _get_secret("APP_PIN", None)
