@@ -65,15 +65,24 @@ def _get_openai_client():
     except Exception:
         return None
 
+def extract_message_content(msg):
+    """Extract content from assistant messages (handle text + json parts)."""
+    out = []
+    for part in msg.content:
+        if hasattr(part, "type"):
+            if part.type == "text":
+                out.append(part.text.value)
+            elif part.type == "json":
+                out.append(json.dumps(part.json, indent=2))
+    return "\n".join(out)
+
 def parse_json_from_content(content):
-    """Parse JSON robustly, handle fences, objects, arrays, or errors."""
-    # Fence: ```json ... ```
-    fence = re.search(r"```json(.*?)```", content, re.DOTALL)
-    if fence:
-        raw_json = fence.group(1).strip()
+    """Parse JSON robustly from assistant output."""
+    fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
+    if fence_match:
+        raw_json = fence_match.group(1).strip()
     else:
-        # Match object or array
-        match = re.search(r'(\{.*\}|\[.*\])', content, re.DOTALL)
+        match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
         raw_json = match.group(0) if match else None
 
     if not raw_json:
@@ -83,7 +92,6 @@ def parse_json_from_content(content):
 
     try:
         data = json.loads(raw_json)
-        # If it's a list, take the first element
         if isinstance(data, list):
             if len(data) == 0:
                 st.error("⚠️ Assistant returned an empty list.")
@@ -122,9 +130,9 @@ Rules:
 - Question must be from the selected sub-units only.
 - Balance coverage (use sub-units less covered).
 - Adapt difficulty: easier if struggling, harder if doing well.
-- Strictly Cambridge IGCSE Physics style.
+- Style must match Cambridge IGCSE Physics 0625 past papers.
 
-Output ONLY JSON. No prose, no intro, no explanation.
+Output ONLY JSON. No prose, no intro, no markdown.
 """
 
     try:
@@ -134,16 +142,14 @@ Output ONLY JSON. No prose, no intro, no explanation.
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
-        content = "".join(
-            [p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"]
-        )
+        content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception as e:
         st.error(f"Error generating question: {e}")
         return None
 
 def assistant_grade(question, user_answer, max_marks):
-    """Grade via Assistant."""
+    """Grade answer via Assistant (JSON)."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
@@ -161,7 +167,7 @@ Return ONLY JSON:
   "awarded": 0..{max_marks},
   "max_marks": {max_marks},
   "correct": true/false,
-  "feedback": ["tip1","tip2"],
+  "feedback": ["Tip 1","Tip 2"],
   "expected": "optional",
   "correct_option": "optional"
 }}
@@ -174,9 +180,7 @@ Return ONLY JSON:
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
-        content = "".join(
-            [p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"]
-        )
+        content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception:
         return None
