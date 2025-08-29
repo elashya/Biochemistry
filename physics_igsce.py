@@ -183,15 +183,14 @@ def reset_state():
 def start_quiz(selected_pairs, n_questions, duration_min):
     # Step 1: Immediately set status to "generating"
     st.session_state.status_message = "🟡 Generating questions… please wait"
-    st.experimental_rerun()  # refresh sidebar so Sohail sees the message
 
     # Step 2: Actually call the Assistant
-    selected = generate_questions_from_assistant(selected_pairs, n_questions)
+    with st.spinner("Generating questions… please wait (up to 30s)"):
+        selected = generate_questions_from_assistant(selected_pairs, n_questions)
 
     # Step 3: If nothing came back → update status and stop
     if len(selected) == 0:
         st.session_state.status_message = "❌ Failed to generate questions"
-        st.experimental_rerun()
         return
 
     # Step 4: If successful → update status
@@ -208,6 +207,7 @@ def start_quiz(selected_pairs, n_questions, duration_min):
     st.session_state.duration_min = duration_min
     st.session_state.start_ts = time.time()
     st.session_state.end_ts = st.session_state.start_ts + duration_min*60
+
 
 
 def render_header():
