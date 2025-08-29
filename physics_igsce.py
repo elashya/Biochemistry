@@ -2,7 +2,7 @@ import streamlit as st
 import json, re
 from collections import defaultdict
 
-APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
+APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice"
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
 # ---------------- IGCSE Physics Syllabus ----------------
@@ -138,31 +138,75 @@ and update 'units' if needed.
         return question_json
 
 # ---------------- Question Generation ----------------
-def generate_single_question(selected_pairs, progress, usage_counter):
+def generate_single_question(selected_pairs, progress, usage_counter, paper_type="P2/4"):
     client = _get_openai_client()
     if client is None:
         return None
+
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
+
+    if paper_type == "P1":  # Multiple Choice
+        paper_rules = """
+Generate ONE multiple-choice exam-style question for Cambridge IGCSE Physics (0625) Paper 1 (MCQ).
+
+Requirements:
+- Based ONLY on the selected sub-units.
+- Provide 4 options (A–D).
+- Ensure 3 distractors reflect common misconceptions reported by Cambridge examiners.
+- Only 1 correct option.
+- Question worth 1 mark.
+"""
+    elif paper_type == "P6":  # Alternative to Practical
+        paper_rules = """
+Generate ONE practical/data-handling style exam question for Cambridge IGCSE Physics (0625) Paper 6 (Alternative to Practical).
+
+Requirements:
+- Focus ONLY on experiment-based or data analysis tasks.
+- Use realistic practical scenarios (tables, graphs, measurements, apparatus, sources of error).
+- May include: plotting a graph, completing a table, describing apparatus, identifying errors, suggesting improvements.
+- Allocate realistic marks (1–6 per part).
+"""
+    else:  # Default → Paper 2/4 Theory
+        paper_rules = """
+Generate ONE structured exam-style question for Cambridge IGCSE Physics (0625) Paper 2/4 (Theory).
+
+Requirements:
+- Based ONLY on the selected sub-units.
+- Use Cambridge command words (state, explain, calculate, determine, describe, suggest).
+- Structure as multi-part (a), (b), (c) where suitable.
+- Allocate realistic marks (1–6 per part).
+- Ensure difficulty matches real Cambridge past paper questions.
+"""
+
     prompt = f"""
-You are a Cambridge IGCSE Physics (0625) tutor.
+You are a Cambridge IGCSE Physics (0625) examiner.
+
 Student selected ONLY these sub-units:
 {subunits_info}
 
-Generate ONE exam-style question in JSON only.
-Fields: id, unit, subunit, type, prompt, marks, units, answer (initial guess).
+{paper_rules}
+
+Return ONLY valid JSON with fields:
+- id, unit, subunit, type, prompt, options (if mcq), answer, tolerance_abs (if numerical), units, marks,
+- technique, common_mistakes, marking_scheme, difficulty, command_words, source.
 """
+
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+
         if not msgs.data:
             return None
+
         content = extract_message_content(msgs.data[0])
         raw_q = parse_json_from_content(content)
+
         if raw_q:
             return validate_solution(raw_q)
         return None
+
     except Exception:
         return None
 
@@ -186,6 +230,8 @@ Return ONLY JSON with:
 - awarded (int marks)
 - correct (true/false)
 - feedback: list of 4 bullet points
+- expected: correct solution with units
+- correct_option: for MCQ only
 - related_techniques: list of 2–3 formulas or exam tips
 """
     try:
@@ -233,7 +279,7 @@ Provide ONLY JSON with:
 def reset_state():
     for k in ["quiz_started","q_index","score","marks_total","responses",
               "error_log","related_techniques_log","usage_counter","n_questions",
-              "selected_pairs","submitted","last_result","last_user_answer","current_q"]:
+              "selected_pairs","submitted","last_result","last_user_answer","current_q","paper_type"]:
         st.session_state.pop(k, None)
 
 def render_header():
@@ -261,12 +307,13 @@ def main():
 
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            # ✅ Flatten all sub-units
+            # Flatten all sub-units
             all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
             subunit_names = [f"{u} – {s}" for (u, s) in all_subunits]
             selected_names = st.multiselect("Select sub-units", subunit_names)
             selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
 
+            paper_type = st.selectbox("Select Paper Type", ["P1 (MCQ)", "P2/4 (Theory)", "P6 (Practical)"])
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
             start = st.form_submit_button("▶️ Start Adaptive Quiz")
 
@@ -284,7 +331,8 @@ def main():
                 st.session_state.related_techniques_log = []
                 st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
-                q = generate_single_question(selected_pairs, {}, defaultdict(int))
+                st.session_state.paper_type = "P1" if "P1" in paper_type else "P6" if "P6" in paper_type else "P2/4"
+                q = generate_single_question(selected_pairs, {}, defaultdict(int), st.session_state.paper_type)
                 if q:
                     st.session_state.current_q = q
                 st.rerun()
@@ -292,6 +340,7 @@ def main():
 
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
+    paper_type = st.session_state.paper_type
 
     if q_index >= n_questions:
         st.subheader("📊 Quiz Complete")
@@ -314,7 +363,7 @@ def main():
 
     q = st.session_state.get("current_q", None)
     if not q:
-        q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int))
+        q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int), paper_type)
         if q: st.session_state.current_q = q
         else:
             st.error("Failed to generate question."); return
@@ -357,7 +406,7 @@ def main():
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
             st.session_state.submitted = False
-            new_q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int))
+            new_q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int), paper_type)
             if new_q: st.session_state.current_q = new_q
             st.rerun()
 
