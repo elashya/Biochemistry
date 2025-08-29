@@ -66,18 +66,24 @@ def _get_openai_client():
         return None
 
 def extract_message_content(msg):
-    """Extract content from assistant messages (handle text + json parts)."""
+    """Extract raw content (text, output_text, json) from an Assistant message."""
     out = []
     for part in msg.content:
-        if hasattr(part, "type"):
-            if part.type == "text":
-                out.append(part.text.value)
-            elif part.type == "json":
-                out.append(json.dumps(part.json, indent=2))
+        if part.type == "text":
+            out.append(part.text.value)
+        elif part.type == "output_text":  # some SDKs use this
+            out.append(part.text)
+        elif part.type == "json":
+            # Assistant returned structured JSON
+            return json.dumps(part.json, indent=2)
     return "\n".join(out)
 
 def parse_json_from_content(content):
     """Parse JSON robustly from assistant output."""
+    # Debug: always show raw output in sidebar
+    st.sidebar.markdown("### 🔎 Raw Assistant output")
+    st.sidebar.code(content, language="json")
+
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
     if fence_match:
         raw_json = fence_match.group(1).strip()
@@ -86,8 +92,7 @@ def parse_json_from_content(content):
         raw_json = match.group(0) if match else None
 
     if not raw_json:
-        st.error("⚠️ Assistant did not return JSON. Raw output below:")
-        st.code(content)
+        st.error("⚠️ No JSON detected. See raw output in sidebar.")
         return None
 
     try:
@@ -99,8 +104,7 @@ def parse_json_from_content(content):
             return data[0]
         return data
     except Exception as e:
-        st.error(f"⚠️ JSON parse error: {e}")
-        st.code(raw_json)
+        st.error(f"⚠️ JSON parse error: {e}. See raw output in sidebar.")
         return None
 
 def generate_single_question(selected_pairs, progress, usage_counter):
