@@ -5,6 +5,30 @@ from collections import defaultdict
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
+# ---------------- IGCSE Physics Syllabus ----------------
+SYLLABUS_UNITS = {
+    "General Physics": [
+        "Length & time", "Mass & weight", "Density",
+        "Speed, velocity & acceleration", "Forces & Newton’s laws",
+        "Turning effects of forces", "Momentum", "Energy/work/power", "Pressure"
+    ],
+    "Thermal Physics": [
+        "Kinetic model of matter", "Thermal properties & temperature", "Heat transfer"
+    ],
+    "Properties of Waves (Light & Sound)": [
+        "General wave properties", "Light (reflection, refraction, lenses, critical angle)",
+        "Sound"
+    ],
+    "Electricity & Magnetism": [
+        "Magnetism", "Electrical quantities", "Electric circuits",
+        "Digital electronics (logic gates)", "Dangers of electricity",
+        "Electromagnetism (motors, transformers, induction)"
+    ],
+    "Atomic Physics": [
+        "Nuclear model of atom", "Radioactivity", "Safety & uses of radioactivity"
+    ]
+}
+
 # ---------------- PIN ----------------
 def require_pin():
     APP_PIN = st.secrets.get("APP_PIN", None)
@@ -232,6 +256,7 @@ def main():
             
             # Map selected names back to (unit, subunit) pairs
             selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
+
 
 
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
