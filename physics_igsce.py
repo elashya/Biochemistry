@@ -281,14 +281,23 @@ def main():
     # Config form
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            units_selected = st.multiselect("Select units", list(SYLLABUS_UNITS.keys()))
-            selected_pairs = []
-            for u in units_selected:
-                subs = st.multiselect(f"Sub-units for **{u}**", SYLLABUS_UNITS[u], key=f"subs_{u}")
-                selected_pairs.extend((u, s) for s in subs)
+            # Flatten all subunits
+            all_subunits = []
+            for u, subs in SYLLABUS_UNITS.items():
+                for s in subs:
+                    all_subunits.append((u, s))
+        
+            # Show just subunit names in the UI
+            subunit_names = [s for (_, s) in all_subunits]
+            selected_names = st.multiselect("Select sub-units", subunit_names)
+        
+            # Map back to (unit, subunit) pairs
+            selected_pairs = [(u, s) for (u, s) in all_subunits if s in selected_names]
+        
             n_questions = st.number_input("Number of questions", min_value=3, max_value=40, value=5, step=1)
             duration_min = st.number_input("Exam time (minutes)", min_value=10, max_value=180, value=30, step=5)
             start = st.form_submit_button("▶️ Start Quiz")
+
         if start:
             if not selected_pairs:
                 st.error("Select at least one sub-unit.")
