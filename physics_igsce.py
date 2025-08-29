@@ -224,10 +224,15 @@ def main():
 
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            subunit_names = ["Length & time", "Mass & weight", "Density",
-                             "Speed, velocity & acceleration"]
+            # Build a flat list of all sub-units across all units
+            all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
+            subunit_names = [f"{u} – {s}" for (u, s) in all_subunits]  # Display "Unit – Subunit"
+            
             selected_names = st.multiselect("Select sub-units", subunit_names)
-            selected_pairs = [("General Physics", s) for s in selected_names]
+            
+            # Map selected names back to (unit, subunit) pairs
+            selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
+
 
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
             start = st.form_submit_button("▶️ Start Adaptive Quiz")
