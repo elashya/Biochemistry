@@ -92,7 +92,7 @@ def assistant_grade(question, user_answer, max_marks):
     }
     """
     client = _get_openai_client()
-    assistant_id = _get_secret("asst_6V33q7Edl4vlh4fiER6OG09d", None)
+    assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
         return None  # No assistant available; caller can fallback to local grading
 
