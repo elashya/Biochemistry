@@ -8,45 +8,45 @@ ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 # ---------------- IGCSE Physics Syllabus ----------------
 SYLLABUS_UNITS = {
     "General Physics": [
-        "Physical quantities & measurement techniques",
-        "Motion: speed, velocity, acceleration, graphs",
-        "Mass & weight",
-        "Density",
-        "Forces & Newton’s laws",
-        "Turning effects of forces",
-        "Momentum & impulse",
-        "Energy stores & transfers",
-        "Work, energy & power",
-        "Energy resources & efficiency",
+        "Physical quantities & measurement; Motion",
+        "Mass & Weight; Density",
+        "Forces & Newton’s Laws",
+        "Turning effects; Scalars & Vectors",
+        "Centre of Mass; Momentum",
+        "Energy transfers; Work & Power",
         "Pressure"
     ],
     "Thermal Physics": [
-        "Particle model of matter",
-        "Temperature & thermal expansion",
-        "Specific heat capacity",
-        "Thermal properties",
-        "Heat transfer"
+        "Kinetic model; States of Matter; Brownian motion",
+        "Gas pressure; Melting/Boiling",
+        "Thermal Capacity; Latent Heat",
+        "Heat Transfer (conduction, convection, radiation)"
     ],
     "Waves (Light & Sound)": [
-        "General wave properties",
-        "Light: reflection, refraction, dispersion, lenses, critical angle",
-        "Sound"
+        "General wave properties; Reflection",
+        "Refraction; Diffraction",
+        "Interference; EM Spectrum",
+        "Light (Lenses, TIR, critical angle)",
+        "Optical Instruments; Sound"
     ],
     "Electricity & Magnetism": [
-        "Electrical quantities & circuits",
-        "Magnetism",
-        "Electromagnetism (motors, transformers, induction)",
-        "Dangers of electricity",
-        "Digital electronics (logic gates)"
+        "Magnetism; Electrostatics",
+        "Current, Voltage, Resistance; Ohm’s Law",
+        "Power/Energy in Circuits",
+        "Safety; Logic Gates",
+        "Electromagnetism; Induction"
     ],
     "Atomic Physics": [
-        "Nuclear model of the atom",
-        "Radioactivity & its uses"
+        "Nuclear model; Isotopes",
+        "Types of radiation; Detection",
+        "Half-life; Dangers",
+        "Nuclear Energy & Uses"
     ],
     "Space Physics": [
-        "Earth & Solar System",
-        "Stellar evolution",
-        "Cosmology (Big Bang, redshift, CMBR)"
+        "Earth, Moon, Sun; Solar System",
+        "Orbits & Satellites",
+        "Life Cycle of Stars",
+        "Cosmology (Big Bang, Redshift, CMB)"
     ]
 }
 
