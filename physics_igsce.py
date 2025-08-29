@@ -3,7 +3,6 @@ import json, re, time
 from collections import defaultdict
 
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice"
-# Embed your assistant ID here (you already asked to keep it in the code)
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
 # ---------------- IGCSE Physics Syllabus ----------------
@@ -94,12 +93,10 @@ def extract_message_content(msg):
     return "\n".join(out)
 
 def parse_json_from_content(content):
-    # Try fenced JSON
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
     if fence_match:
         raw_json = fence_match.group(1).strip()
     else:
-        # Fallback: first JSON object/array in text
         match = re.search(r'(\{.*\}|\[.*\])', content, re.DOTALL)
         raw_json = match.group(1).strip() if match else None
     if not raw_json:
@@ -120,9 +117,20 @@ def letter_to_idx(letter):
     m = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "F": 5}
     return m.get(letter.upper(), None)
 
+def normalize_mcq_options(options):
+    """Strip any leading letters/numbers (A), A., A- etc) so we can label cleanly."""
+    norm = []
+    for opt in options:
+        if not isinstance(opt, str):
+            norm.append(str(opt))
+            continue
+        # remove leading like "A) ", "A. ", "1) ", "1. " etc
+        cleaned = re.sub(r"^\s*([A-Da-d0-9])\s*[\.\)]\s*", "", opt).strip()
+        norm.append(cleaned)
+    return norm
+
 # ---------------- Solution Validation ----------------
 def validate_solution(question_json):
-    """Ask the assistant (at temp 0) to recompute the correct answer and fix fields if needed."""
     client = _get_openai_client()
     if client is None:
         return question_json
@@ -156,8 +164,9 @@ def generate_single_question(selected_pairs, progress, usage_counter, paper_type
         return None
 
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
+    novelty = f"nonce:{time.time():.0f}"
 
-    if paper_type == "P1":  # Multiple Choice
+    if paper_type == "P1":
         paper_rules = """
 Generate ONE multiple-choice exam-style question for Cambridge IGCSE Physics (0625) Paper 1 (MCQ).
 
@@ -168,7 +177,7 @@ Requirements:
 - Only 1 correct option. Set "type": "mcq".
 - Question worth 1 mark (set "marks": 1).
 """
-    elif paper_type == "P6":  # Alternative to Practical
+    elif paper_type == "P6":
         paper_rules = """
 Generate ONE practical/data-handling style exam question for Cambridge IGCSE Physics (0625) Paper 6 (Alternative to Practical).
 
@@ -178,7 +187,7 @@ Requirements:
 - May include: plotting a graph, completing a table, describing apparatus, identifying errors, suggesting improvements.
 - Allocate realistic marks (1–6 per part). "type" can be "short_text" or "numerical".
 """
-    else:  # Default → Paper 2/4 Theory
+    else:
         paper_rules = """
 Generate ONE structured exam-style question for Cambridge IGCSE Physics (0625) Paper 2/4 (Theory).
 
@@ -189,9 +198,6 @@ Requirements:
 - Allocate realistic marks (1–6 per part).
 - Ensure difficulty matches real Cambridge past paper questions.
 """
-
-    # Add a tiny nonce to promote novelty across runs
-    novelty = f"nonce:{time.time():.0f}"
 
     prompt = f"""
 You are a Cambridge IGCSE Physics (0625) examiner.
@@ -220,9 +226,7 @@ Make sure the JSON is valid and contains a single object. {novelty}
 
         content = extract_message_content(msgs.data[0])
         raw_q = parse_json_from_content(content)
-
         if raw_q:
-            # Ensure minimal fields exist
             raw_q.setdefault("marks", 1 if paper_type == "P1" else 2)
             raw_q.setdefault("type", "mcq" if paper_type == "P1" else "short_text")
             return validate_solution(raw_q)
@@ -254,7 +258,7 @@ Return ONLY JSON with:
 - awarded (int marks)
 - correct (true/false)
 - feedback: list of 4 bullet points
-- expected: correct solution with units (or correct option for MCQ)
+- expected: correct solution with units (or correct option text for MCQ)
 - correct_option: for MCQ only (e.g. "B")
 - related_techniques: list of 2–3 formulas or exam tips
 """
@@ -323,11 +327,11 @@ def main():
     with st.sidebar:
         st.write("### 📊 Progress")
         st.write(f"Score: {st.session_state.get('score',0)}/{st.session_state.get('marks_total',0)}")
-        if "error_log" in st.session_state and st.session_state["error_log"]:
+        if st.session_state.get("error_log"):
             st.write("### ❌ Error Log")
             for e in st.session_state["error_log"]:
                 st.markdown("- " + e)
-        if "related_techniques_log" in st.session_state and st.session_state["related_techniques_log"]:
+        if st.session_state.get("related_techniques_log"):
             st.write("### 📘 Related Techniques")
             for t in st.session_state["related_techniques_log"]:
                 st.markdown("- " + t)
@@ -361,7 +365,7 @@ def main():
                 st.session_state.selected_pairs = selected_pairs
                 st.session_state.paper_type = "P1" if paper_choice.startswith("P1") \
                                               else "P6" if paper_choice.startswith("P6") else "P2/4"
-                st.session_state.usage_counter = {}  # simple dict ok
+                st.session_state.usage_counter = {}
                 with st.spinner("Getting first question..."):
                     q = generate_single_question(
                         selected_pairs, {}, st.session_state.usage_counter, st.session_state.paper_type
@@ -417,11 +421,11 @@ def main():
     user_answer = None
     if not st.session_state.get("submitted", False):
         if paper_type == "P1" and q.get("type") == "mcq" and "options" in q:
-            # Render options as A/B/C/D and send only letter to grader
-            options = q["options"]
-            labels = [f"{idx_to_letter(i)}) {opt}" for i, opt in enumerate(options)]
+            # Normalize and render labeled options
+            raw_opts = q.get("options", [])
+            clean_opts = normalize_mcq_options(raw_opts)
+            labels = [f"{idx_to_letter(i)}) {opt}" for i, opt in enumerate(clean_opts)]
             choice = st.radio("Choose one option:", labels, key=f"mcq_{q_index}")
-            # Extract the chosen letter
             chosen_idx = labels.index(choice) if choice in labels else None
             st.session_state.mcq_choice_idx = chosen_idx
             user_answer = idx_to_letter(chosen_idx) if chosen_idx is not None else ""
@@ -443,24 +447,37 @@ def main():
                     st.rerun()
     else:
         # Show feedback
-        result = st.session_state.last_result
-        st.success("Feedback")
+        result = st.session_state.last_result or {}
+        correct = bool(result.get("correct", False))
+        awarded = int(result.get("awarded", 0))
+        expected = result.get("expected", "")
+        correct_option = result.get("correct_option", None)
+
+        if correct:
+            st.success("✅ Correct.")
+        else:
+            if paper_type == "P1" and correct_option:
+                st.error(f"❌ Incorrect. Correct answer: **{correct_option}** ({expected})")
+            else:
+                st.error(f"❌ Incorrect. Correct answer: **{expected}**")
+
+        st.write("### Feedback")
         for f in result.get("feedback", []):
             st.markdown("- " + f)
 
-        # Log result once
+        # Log once
         if len(st.session_state.responses) <= q_index:
-            st.session_state.score += int(result.get("awarded", 0))
+            st.session_state.score += awarded
             st.session_state.marks_total += int(q.get("marks", 1))
             st.session_state.responses.append({
                 "index": q_index,
                 "prompt": q["prompt"],
                 "user_answer": st.session_state.last_user_answer,
-                "awarded": int(result.get("awarded", 0)),
+                "awarded": awarded,
                 "marks": int(q.get("marks", 1)),
-                "correct": bool(result.get("correct", False)),
+                "correct": correct,
             })
-            if not result.get("correct", False):
+            if not correct:
                 st.session_state.error_log.append(f"Q{q_index+1}: {st.session_state.last_user_answer}")
             for t in result.get("related_techniques", []):
                 st.session_state.related_techniques_log.append(f"Q{q_index+1}: {t}")
