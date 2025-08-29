@@ -8,24 +8,45 @@ ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 # ---------------- IGCSE Physics Syllabus ----------------
 SYLLABUS_UNITS = {
     "General Physics": [
-        "Length & time", "Mass & weight", "Density",
-        "Speed, velocity & acceleration", "Forces & Newton’s laws",
-        "Turning effects of forces", "Momentum", "Energy/work/power", "Pressure"
+        "Physical quantities & measurement techniques",
+        "Motion: speed, velocity, acceleration, graphs",
+        "Mass & weight",
+        "Density",
+        "Forces & Newton’s laws",
+        "Turning effects of forces",
+        "Momentum & impulse",
+        "Energy stores & transfers",
+        "Work, energy & power",
+        "Energy resources & efficiency",
+        "Pressure"
     ],
     "Thermal Physics": [
-        "Kinetic model of matter", "Thermal properties & temperature", "Heat transfer"
+        "Particle model of matter",
+        "Temperature & thermal expansion",
+        "Specific heat capacity",
+        "Thermal properties",
+        "Heat transfer"
     ],
-    "Properties of Waves (Light & Sound)": [
-        "General wave properties", "Light (reflection, refraction, lenses, critical angle)",
+    "Waves (Light & Sound)": [
+        "General wave properties",
+        "Light: reflection, refraction, dispersion, lenses, critical angle",
         "Sound"
     ],
     "Electricity & Magnetism": [
-        "Magnetism", "Electrical quantities", "Electric circuits",
-        "Digital electronics (logic gates)", "Dangers of electricity",
-        "Electromagnetism (motors, transformers, induction)"
+        "Electrical quantities & circuits",
+        "Magnetism",
+        "Electromagnetism (motors, transformers, induction)",
+        "Dangers of electricity",
+        "Digital electronics (logic gates)"
     ],
     "Atomic Physics": [
-        "Nuclear model of atom", "Radioactivity", "Safety & uses of radioactivity"
+        "Nuclear model of the atom",
+        "Radioactivity & its uses"
+    ],
+    "Space Physics": [
+        "Earth & Solar System",
+        "Stellar evolution",
+        "Cosmology (Big Bang, redshift, CMBR)"
     ]
 }
 
