@@ -181,10 +181,13 @@ def reset_state():
         st.session_state.pop(k, None)
 
 def start_quiz(selected_pairs, n_questions, duration_min):
-    selected = generate_questions_from_assistant(selected_pairs, n_questions)
+    with st.spinner("Generating questions... please wait (up to 30s)"):
+        selected = generate_questions_from_assistant(selected_pairs, n_questions)
+
     if len(selected) == 0:
         st.warning("No questions generated. Try different units/sub-units.")
         return
+
     st.session_state.quiz_started = True
     st.session_state.selected_qs = selected
     st.session_state.q_index = 0
