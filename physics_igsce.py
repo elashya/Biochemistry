@@ -2,10 +2,7 @@ import streamlit as st
 import json, time, os, re
 from collections import defaultdict
 
-# ----------------------
-# Config
-# ----------------------
-APP_TITLE = "IGCSE Physics (0625) — Timed Exam Practice (Dynamic Assistant)"
+APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 
 SYLLABUS_UNITS = {
     "General Physics": [
@@ -32,9 +29,7 @@ SYLLABUS_UNITS = {
     ],
 }
 
-# ----------------------
-# Secrets / PIN
-# ----------------------
+# ---------------- Secrets / PIN ----------------
 def _get_secret(name, default=None):
     try:
         return st.secrets.get(name, default)
@@ -42,10 +37,8 @@ def _get_secret(name, default=None):
         return os.getenv(name, default)
 
 def require_pin():
-    """Gate the app behind a PIN stored in Streamlit Secrets as APP_PIN."""
     APP_PIN = _get_secret("APP_PIN", None)
     if not APP_PIN:
-        st.sidebar.warning("Admin: Set APP_PIN in Streamlit Secrets to enable the PIN gate.")
         return True
     if st.session_state.get("authed"):
         return True
@@ -61,9 +54,7 @@ def require_pin():
             st.error("Incorrect PIN.")
     st.stop()
 
-# ----------------------
-# OpenAI Assistants API
-# ----------------------
+# ---------------- OpenAI ----------------
 def _get_openai_client():
     api_key = _get_secret("OPENAI_API_KEY", None)
     if not api_key:
@@ -74,75 +65,78 @@ def _get_openai_client():
     except Exception:
         return None
 
-def generate_questions_from_assistant(selected_pairs, n_questions):
-    """Ask the Assistant to generate questions dynamically in JSON."""
+def generate_single_question(selected_pairs, progress, usage_counter):
+    """Generate ONE adaptive question from Assistant, respecting scope and balancing sub-units."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
-        st.error("Assistant not available. Please set OPENAI_API_KEY and ASSISTANT_ID in Secrets.")
-        return []
+        return None
 
-    units_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
-    payload = f"""
-You are a Cambridge IGCSE Physics (0625) exam question generator.
-Generate {n_questions} questions in JSON format.
+    subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
+    coverage = "\n".join([f"{sub}: {count}" for (_, sub), count in usage_counter.items()])
+    history_summary = f"So far performance: {progress}" if progress else "No answers yet."
 
-Target units/sub-units:
-{units_info}
+    prompt = f"""
+You are a Cambridge IGCSE Physics (0625) adaptive tutor.
 
-Each question must include:
-- id
-- unit
-- subunit
-- type (numerical | mcq | short_text)
-- prompt
-- options (mcq only)
-- answer
-- tolerance_abs (if numerical)
-- units (if numerical)
-- marks
-- technique
-- common_mistakes
-- marking_scheme
-- source
+Student selected these sub-units ONLY:
+{subunits_info}
 
-Rules:
-- Output ONLY a valid JSON array, no extra text.
-- Questions must match Cambridge IGCSE Physics (0625) style and difficulty.
-- Include realistic marking scheme, technique, and common mistakes.
+Coverage so far:
+{coverage}
+
+Performance so far:
+{history_summary}
+
+Instruction:
+- Generate ONE exam-style question (MCQ, numerical, or short_text).
+- Use ONLY the chosen sub-units above.
+- Balance coverage: prefer sub-units that have fewer questions so far.
+- Adapt difficulty: easier if student struggled recently, harder if doing well.
+- Style must match Cambridge IGCSE Physics 0625 past papers.
+
+Return ONLY a JSON object with:
+{{
+  "id": "unique-id",
+  "unit": "General Physics",
+  "subunit": "Length & time",
+  "type": "numerical | mcq | short_text",
+  "prompt": "Question text...",
+  "options": ["A","B","C","D"],  
+  "answer": 2.0,                 
+  "tolerance_abs": 0.1,
+  "units": "m/s^2",
+  "marks": 2,
+  "technique": ["Step 1","Step 2"],
+  "common_mistakes": ["Mistake 1","Mistake 2"],
+  "marking_scheme": "How marks are awarded",
+  "source": "Generated"
+}}
+JSON only, no prose.
 """
     try:
         thread = client.beta.threads.create()
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=payload
-        )
-        client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id,
-            assistant_id=assistant_id,
-            temperature=0.3,
-            top_p=0.9
-        )
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
-            return []
+            return None
         content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
-        match = re.search(r'\[.*\]', content, re.DOTALL)
-        return json.loads(match.group(0)) if match else []
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        return json.loads(match.group(0)) if match else None
     except Exception as e:
-        st.error(f"Error generating questions: {e}")
-        return []
+        st.error(f"Error generating question: {e}")
+        return None
 
 def assistant_grade(question, user_answer, max_marks):
-    """Ask the Assistant to grade a single answer and return JSON feedback."""
+    """Grade answer via Assistant (JSON)."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
         return None
 
     payload = f"""
-Evaluate the student's answer for the following Physics question:
+Evaluate this IGCSE Physics (0625) answer.
 
 Question: {question['prompt']}
 Unit: {question['unit']} | Sub-unit: {question['subunit']}
@@ -150,14 +144,15 @@ Type: {question['type']}
 Correct answer (for reference): {question.get('answer','')}
 Student answer: {user_answer}
 
-Return JSON with:
-- awarded (0..{max_marks})
-- max_marks
-- correct (true/false)
-- feedback (list of 1-3 tips)
-- expected (string, optional)
-- correct_option (string, optional)
-Only output JSON, nothing else.
+Return JSON only:
+{{
+  "awarded": 0..{max_marks},
+  "max_marks": {max_marks},
+  "correct": true/false,
+  "feedback": ["tip1","tip2"],
+  "expected": "expected value (optional)",
+  "correct_option": "B (optional)"
+}}
 """
     try:
         thread = client.beta.threads.create()
@@ -172,111 +167,16 @@ Only output JSON, nothing else.
     except Exception:
         return None
 
-# ----------------------
-# Quiz Helpers
-# ----------------------
+# ---------------- Helpers ----------------
 def reset_state():
-    for k in ["quiz_started","selected_qs","q_index","score","marks_total",
-              "responses","error_log","start_ts","end_ts","duration_min"]:
+    for k in ["quiz_started","q_index","score","marks_total","responses",
+              "error_log","usage_counter","n_questions","selected_pairs"]:
         st.session_state.pop(k, None)
-
-def start_quiz(selected_pairs, n_questions, duration_min):
-    # Step 1: Immediately set status to "generating"
-    st.session_state.status_message = "🟡 Generating questions… please wait"
-
-    # Step 2: Actually call the Assistant
-    with st.spinner("Generating questions… please wait (up to 30s)"):
-        selected = generate_questions_from_assistant(selected_pairs, n_questions)
-
-    # Step 3: If nothing came back → update status and stop
-    if len(selected) == 0:
-        st.session_state.status_message = "❌ Failed to generate questions"
-        return
-
-    # Step 4: If successful → update status
-    st.session_state.status_message = "✅ Questions ready!"
-
-    # Step 5: Continue with quiz state as usual
-    st.session_state.quiz_started = True
-    st.session_state.selected_qs = selected
-    st.session_state.q_index = 0
-    st.session_state.score = 0
-    st.session_state.marks_total = sum(q.get("marks",1) for q in selected)
-    st.session_state.responses = []
-    st.session_state.error_log = []
-    st.session_state.duration_min = duration_min
-    st.session_state.start_ts = time.time()
-    st.session_state.end_ts = st.session_state.start_ts + duration_min*60
-
-
 
 def render_header():
     st.title(APP_TITLE)
-    st.caption("Powered by Assistant ID (dynamic question generation + grading).")
-    st.markdown(
-        "- **Syllabus**: [0625 Physics 2023–2025](https://www.cambridgeinternational.org/Images/595430-2023-2025-syllabus.pdf)\n"
-        "- **Grade Descriptions**: [2023–2025](https://www.cambridgeinternational.org/Images/730281-2023-2025-grade-descriptions.pdf)"
-    )
+    st.caption("Adaptive mode: generates one question at a time, adjusting to performance.")
 
-def time_remaining_text():
-    if not st.session_state.get("quiz_started"):
-        return ""
-    remaining = max(0, int(st.session_state.end_ts - time.time()))
-    m, s = divmod(remaining, 60)
-    return f"⏳ Time remaining: **{m:02d}:{s:02d}**"
-
-def grade_with_assistant_or_local(q, user_answer):
-    max_marks = q.get("marks", 1)
-    data = assistant_grade(q, user_answer, max_marks)
-    if data:
-        awarded = int(max(0, min(max_marks, data.get("awarded", 0))))
-        correct = bool(data.get("correct", awarded == max_marks))
-        feedback_points = [str(x) for x in data.get("feedback", [])]
-        if "expected" in data:
-            feedback_points.append(f"**Expected**: {data['expected']}")
-        if "correct_option" in data and q["type"] == "mcq":
-            feedback_points.append(f"**Correct option**: {data['correct_option']}")
-        return correct, awarded, feedback_points
-    return False, 0, ["❌ Unable to grade (Assistant unavailable)."]
-
-def end_quiz_summary():
-    st.subheader("📊 Summary & Score")
-    score = st.session_state.score
-    total = st.session_state.marks_total
-    pct = 100.0 * score / total if total else 0.0
-    st.metric("Final Score", f"{score} / {total}", f"{pct:.1f}%")
-    rows = []
-    per_topic = defaultdict(lambda: {"marks":0, "scored":0})
-    for r in st.session_state.responses:
-        key = (r["unit"], r["subunit"])
-        per_topic[key]["marks"] += r["marks"]
-        per_topic[key]["scored"] += r["awarded"]
-        rows.append({
-            "Q#": r["index"]+1,
-            "Unit": r["unit"], "Sub-unit": r["subunit"],
-            "Result": "✓" if r["correct"] else "✗",
-            "Marks": r["marks"], "Awarded": r["awarded"],
-            "Your answer": r["user_answer"],
-            "Correct/Expected": r.get("correct_display",""),
-            "Source": r.get("source","Generated")
-        })
-    if rows:
-        st.dataframe(rows, use_container_width=True)
-    st.subheader("🧭 Focus Suggestions")
-    weak = sorted(per_topic.items(), key=lambda kv: (kv[1]["scored"]/(kv[1]["marks"] or 1e-9)))
-    for i, ((unit, sub), stats) in enumerate(weak[:5], start=1):
-        rate = 100.0*stats["scored"]/(stats["marks"] or 1e-9)
-        st.write(f"{i}. **{unit} → {sub}**: {rate:.0f}% — revise with marking schemes.")
-    if st.session_state.error_log:
-        st.download_button("Download error log", "\n".join(st.session_state.error_log), "error_log.csv")
-
-    if st.button("🔁 Start another quiz"):
-        reset_state()
-        st.rerun()
-
-# ----------------------
-# Main UI
-# ----------------------
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📘")
     require_pin()
@@ -288,87 +188,104 @@ def main():
             st.success("Assistant grading: ON")
         else:
             st.warning("Assistant grading: OFF (no secrets set)")
-    
-        # Show generation progress/status
         if "status_message" in st.session_state:
             st.info(st.session_state.status_message)
 
-
-    # Config form
+    # ---------------- Config Form ----------------
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            # Flatten all subunits
-            all_subunits = []
-            for u, subs in SYLLABUS_UNITS.items():
-                for s in subs:
-                    all_subunits.append((u, s))
-        
-            # Show just subunit names in the UI
+            all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
             subunit_names = [s for (_, s) in all_subunits]
             selected_names = st.multiselect("Select sub-units", subunit_names)
-        
-            # Map back to (unit, subunit) pairs
             selected_pairs = [(u, s) for (u, s) in all_subunits if s in selected_names]
-        
-            n_questions = st.number_input("Number of questions", min_value=3, max_value=40, value=5, step=1)
-            duration_min = st.number_input("Exam time (minutes)", min_value=10, max_value=180, value=30, step=5)
-            start = st.form_submit_button("▶️ Start Quiz")
+
+            n_questions = st.number_input("Number of questions", 3, 40, 5, 1)
+            start = st.form_submit_button("▶️ Start Adaptive Quiz")
 
         if start:
             if not selected_pairs:
                 st.error("Select at least one sub-unit.")
             else:
-                start_quiz(selected_pairs, n_questions, duration_min)
+                st.session_state.quiz_started = True
+                st.session_state.q_index = 0
+                st.session_state.score = 0
+                st.session_state.marks_total = 0
+                st.session_state.responses = []
+                st.session_state.error_log = []
+                st.session_state.usage_counter = defaultdict(int)
+                st.session_state.n_questions = n_questions
+                st.session_state.selected_pairs = selected_pairs
+                st.session_state.status_message = "🟡 Ready to generate first question"
                 st.rerun()
         return
 
-    # Active Quiz
-    st.info(time_remaining_text())
-    if time.time() >= st.session_state.end_ts:
-        st.warning("⏰ Time is up! Submitting...")
-        end_quiz_summary()
-        return
-
+    # ---------------- Active Quiz ----------------
     q_index = st.session_state.q_index
-    selected = st.session_state.selected_qs
-    if q_index >= len(selected):
-        end_quiz_summary()
+    n_questions = st.session_state.n_questions
+
+    if q_index >= n_questions:
+        st.subheader("📊 Quiz Complete")
+        st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
+        if st.button("🔁 Start again"):
+            reset_state()
+            st.rerun()
         return
 
-    q = selected[q_index]
-    st.subheader(f"Question {q_index+1} of {len(selected)}")
-    st.markdown(f"**Unit:** {q['unit']}  \n**Sub-unit:** {q['subunit']}  \n**Marks:** {q.get('marks',1)}")
+    # Generate next question if needed
+    if q_index >= len(st.session_state.responses):
+        st.session_state.status_message = "🟡 Generating next question..."
+        progress = {"responses": st.session_state.responses}
+        new_q = generate_single_question(
+            st.session_state.selected_pairs,
+            progress,
+            st.session_state.usage_counter
+        )
+        if new_q:
+            st.session_state.current_q = new_q
+            st.session_state.usage_counter[(new_q["unit"], new_q["subunit"])] += 1
+            st.session_state.status_message = f"✅ Generated question {q_index+1}"
+        else:
+            st.error("Failed to generate question.")
+            return
+
+    q = st.session_state.current_q
+    st.subheader(f"Question {q_index+1} of {n_questions}")
+    st.write(f"**Sub-unit:** {q['subunit']}  |  **Marks:** {q.get('marks',1)}")
     st.write(q["prompt"])
 
     if q["type"] == "mcq":
-        user_answer = st.radio("Choose an option:", q["options"], index=0)
+        user_answer = st.radio("Choose:", q["options"])
     elif q["type"] == "numerical":
         user_answer = st.text_input(f"Your answer ({q.get('units','')})")
-    elif q["type"] == "short_text":
-        user_answer = st.text_area("Your short answer", height=120)
     else:
-        st.error("Unknown question type.")
-        return
+        user_answer = st.text_area("Your answer")
 
     if st.button("✅ Submit Answer"):
-        correct, awarded, feedback = grade_with_assistant_or_local(q, user_answer)
-        st.session_state.score += awarded
-        st.session_state.responses.append({
-            "index": q_index, "unit": q["unit"], "subunit": q["subunit"],
-            "marks": q.get("marks",1), "awarded": awarded, "correct": correct,
-            "user_answer": user_answer, "source": "Generated"
-        })
-        st.success("Feedback")
-        for f in feedback:
-            st.markdown("- " + f)
-        if not correct:
-            st.session_state.error_log.append(f"{q['unit']} | {q['subunit']} | Q{q_index+1} | Your: {user_answer}")
-        if st.button("➡️ Next question"):
-            st.session_state.q_index += 1
-            st.rerun()
-
-    if st.button("🛑 End quiz now"):
-        end_quiz_summary()
+        result = assistant_grade(q, user_answer, q.get("marks",1))
+        if result:
+            awarded = result.get("awarded",0)
+            correct = result.get("correct",False)
+            feedback = result.get("feedback",[])
+            st.session_state.score += awarded
+            st.session_state.marks_total += q.get("marks",1)
+            st.session_state.responses.append({
+                "index": q_index,
+                "unit": q["unit"],
+                "subunit": q["subunit"],
+                "marks": q.get("marks",1),
+                "awarded": awarded,
+                "correct": correct,
+                "user_answer": user_answer
+            })
+            st.success("Feedback")
+            for f in feedback: st.markdown("- " + f)
+            if not correct:
+                st.session_state.error_log.append(f"{q['subunit']} | Q{q_index+1} | Ans: {user_answer}")
+            if st.button("➡️ Next"):
+                st.session_state.q_index += 1
+                st.rerun()
+        else:
+            st.error("Grading failed.")
 
 if __name__ == "__main__":
     main()
