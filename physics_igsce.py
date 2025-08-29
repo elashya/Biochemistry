@@ -4,7 +4,7 @@ from collections import defaultdict
 
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 
-# Hardcode Assistant ID here
+# Hardcode Assistant ID
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
 SYLLABUS_UNITS = {
@@ -75,9 +75,6 @@ def extract_message_content(msg):
     return "\n".join(out)
 
 def parse_json_from_content(content):
-    st.sidebar.markdown("### 🔎 Raw Assistant output (content string)")
-    st.sidebar.code(content)
-
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
     if fence_match:
         raw_json = fence_match.group(1).strip()
@@ -86,7 +83,6 @@ def parse_json_from_content(content):
         raw_json = match.group(0) if match else None
 
     if not raw_json:
-        st.error("⚠️ No JSON detected. See raw output in sidebar.")
         return None
 
     try:
@@ -94,14 +90,12 @@ def parse_json_from_content(content):
         if isinstance(data, list):
             return data[0] if data else None
         return data
-    except Exception as e:
-        st.error(f"⚠️ JSON parse error: {e}")
+    except Exception:
         return None
 
 def generate_single_question(selected_pairs, progress, usage_counter):
     client = _get_openai_client()
     if client is None:
-        st.error("⚠️ Missing OpenAI client (check API key).")
         return None
 
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
@@ -128,20 +122,12 @@ Generate ONE exam-style question in JSON only.
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
-        st.sidebar.markdown("### 🗂 Full msgs object")
-        try:
-            st.sidebar.json(msgs.model_dump())
-        except Exception:
-            st.sidebar.write(str(msgs))
-
         if not msgs.data:
-            st.error("⚠️ No messages returned from Assistant.")
             return None
 
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
-    except Exception as e:
-        st.error(f"Error generating question: {e}")
+    except Exception:
         return None
 
 def assistant_grade(question, user_answer, max_marks):
@@ -165,12 +151,6 @@ Return ONLY JSON with awarded marks and feedback.
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
-        st.sidebar.markdown("### 🗂 Full grading msgs object")
-        try:
-            st.sidebar.json(msgs.model_dump())
-        except Exception:
-            st.sidebar.write(str(msgs))
-
         if not msgs.data:
             return None
 
@@ -182,7 +162,8 @@ Return ONLY JSON with awarded marks and feedback.
 # ---------------- Helpers ----------------
 def reset_state():
     for k in ["quiz_started","q_index","score","marks_total","responses",
-              "error_log","usage_counter","n_questions","selected_pairs"]:
+              "error_log","usage_counter","n_questions","selected_pairs",
+              "submitted","last_result"]:
         st.session_state.pop(k, None)
 
 def render_header():
@@ -195,10 +176,6 @@ def main():
     render_header()
 
     with st.sidebar:
-        try:
-            st.write("Secrets available:", list(st.secrets.keys()))
-        except Exception:
-            st.write("No secrets loaded.")
         if "OPENAI_API_KEY" in st.secrets:
             st.success("Assistant grading: ON")
         else:
@@ -230,6 +207,7 @@ def main():
                 st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
                 st.session_state.status_message = "🟡 Ready to generate first question"
+                st.session_state.submitted = False
                 st.rerun()
         return
 
@@ -268,32 +246,50 @@ def main():
     else:
         user_answer = st.text_area("Your answer")
 
-    if st.button("✅ Submit Answer"):
-        result = assistant_grade(q, user_answer, q.get("marks",1))
-        if result:
-            awarded = result.get("awarded",0)
-            correct = result.get("correct",False)
-            feedback = result.get("feedback",[])
-            st.session_state.score += awarded
-            st.session_state.marks_total += q.get("marks",1)
-            st.session_state.responses.append({
-                "index": q_index,
-                "unit": q["unit"],
-                "subunit": q["subunit"],
-                "marks": q.get("marks",1),
-                "awarded": awarded,
-                "correct": correct,
-                "user_answer": user_answer
-            })
-            st.success("Feedback")
-            for f in feedback: st.markdown("- " + f)
-            if not correct:
-                st.session_state.error_log.append(f"{q['subunit']} | Q{q_index+1} | Ans: {user_answer}")
-            if st.button("➡️ Next"):
-                st.session_state.q_index += 1
-                st.rerun()
-        else:
-            st.error("Grading failed.")
+    # Ensure state exists
+    if "submitted" not in st.session_state:
+        st.session_state.submitted = False
+
+    if not st.session_state.submitted:
+        if st.button("✅ Submit Answer"):
+            if not user_answer.strip():
+                st.warning("⚠️ Please enter an answer before submitting.")
+            else:
+                result = assistant_grade(q, user_answer, q.get("marks",1))
+                if result:
+                    st.session_state.submitted = True
+                    st.session_state.last_result = result
+                    st.session_state.last_user_answer = user_answer
+                    st.rerun()
+    else:
+        result = st.session_state.last_result
+        user_answer = st.session_state.last_user_answer
+        awarded = result.get("awarded",0)
+        correct = result.get("correct",False)
+        feedback = result.get("feedback",[])
+
+        st.success("Feedback")
+        for f in feedback:
+            st.markdown("- " + f)
+
+        st.session_state.score += awarded
+        st.session_state.marks_total += q.get("marks",1)
+        st.session_state.responses.append({
+            "index": q_index,
+            "unit": q["unit"],
+            "subunit": q["subunit"],
+            "marks": q.get("marks",1),
+            "awarded": awarded,
+            "correct": correct,
+            "user_answer": user_answer
+        })
+        if not correct:
+            st.session_state.error_log.append(f"{q['subunit']} | Q{q_index+1} | Ans: {user_answer}")
+
+        if st.button("➡️ Next"):
+            st.session_state.q_index += 1
+            st.session_state.submitted = False
+            st.rerun()
 
 if __name__ == "__main__":
     main()
