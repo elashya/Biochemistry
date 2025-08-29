@@ -66,34 +66,37 @@ def _get_openai_client():
         return None
 
 def parse_json_from_content(content):
-    """Try to parse JSON from assistant content, handling fences, arrays, or objects."""
-    # Look for fenced JSON
-    fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
-    if fence_match:
-        raw_json = fence_match.group(1).strip()
+    """Parse JSON robustly, handle fences, objects, arrays, or errors."""
+    # Fence: ```json ... ```
+    fence = re.search(r"```json(.*?)```", content, re.DOTALL)
+    if fence:
+        raw_json = fence.group(1).strip()
     else:
-        # Capture either array [ ... ] or object { ... }
-        match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
+        # Match object or array
+        match = re.search(r'(\{.*\}|\[.*\])', content, re.DOTALL)
         raw_json = match.group(0) if match else None
 
     if not raw_json:
-        st.error("Assistant did not return JSON. Raw output:")
+        st.error("⚠️ Assistant did not return JSON. Raw output below:")
         st.code(content)
         return None
 
     try:
         data = json.loads(raw_json)
-        # If array, take first element
-        if isinstance(data, list) and len(data) > 0:
+        # If it's a list, take the first element
+        if isinstance(data, list):
+            if len(data) == 0:
+                st.error("⚠️ Assistant returned an empty list.")
+                return None
             return data[0]
         return data
     except Exception as e:
-        st.error(f"Failed to parse JSON: {e}")
+        st.error(f"⚠️ JSON parse error: {e}")
         st.code(raw_json)
         return None
 
 def generate_single_question(selected_pairs, progress, usage_counter):
-    """Generate ONE adaptive question from Assistant, respecting scope and balancing sub-units."""
+    """Generate ONE adaptive question from Assistant."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
@@ -104,9 +107,8 @@ def generate_single_question(selected_pairs, progress, usage_counter):
     history_summary = f"So far performance: {progress}" if progress else "No answers yet."
 
     prompt = f"""
-You are a Cambridge IGCSE Physics (0625) adaptive tutor.
-
-Student selected these sub-units ONLY:
+You are a Cambridge IGCSE Physics (0625) tutor.
+Student selected ONLY these sub-units:
 {subunits_info}
 
 Coverage so far:
@@ -115,14 +117,14 @@ Coverage so far:
 Performance so far:
 {history_summary}
 
-Instruction:
-- Generate ONE exam-style question (MCQ, numerical, or short_text).
-- Use ONLY the chosen sub-units above.
-- Balance coverage: prefer sub-units that have fewer questions so far.
-- Adapt difficulty: easier if student struggled recently, harder if doing well.
-- Style must match Cambridge IGCSE Physics 0625 past papers.
+Generate ONE exam-style question in JSON.
+Rules:
+- Question must be from the selected sub-units only.
+- Balance coverage (use sub-units less covered).
+- Adapt difficulty: easier if struggling, harder if doing well.
+- Strictly Cambridge IGCSE Physics style.
 
-Return ONLY JSON.
+Output ONLY JSON. No prose, no intro, no explanation.
 """
 
     try:
@@ -132,39 +134,49 @@ Return ONLY JSON.
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
-        content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
+        content = "".join(
+            [p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"]
+        )
         return parse_json_from_content(content)
     except Exception as e:
         st.error(f"Error generating question: {e}")
         return None
 
 def assistant_grade(question, user_answer, max_marks):
-    """Grade answer via Assistant (JSON)."""
+    """Grade via Assistant."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
         return None
 
-    payload = f"""
+    prompt = f"""
 Evaluate this IGCSE Physics (0625) answer.
 
 Question: {question['prompt']}
-Unit: {question['unit']} | Sub-unit: {question['subunit']}
-Type: {question['type']}
 Correct answer (for reference): {question.get('answer','')}
 Student answer: {user_answer}
 
-Return ONLY JSON.
+Return ONLY JSON:
+{{
+  "awarded": 0..{max_marks},
+  "max_marks": {max_marks},
+  "correct": true/false,
+  "feedback": ["tip1","tip2"],
+  "expected": "optional",
+  "correct_option": "optional"
+}}
 """
 
     try:
         thread = client.beta.threads.create()
-        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=payload)
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
-        content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
+        content = "".join(
+            [p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"]
+        )
         return parse_json_from_content(content)
     except Exception:
         return None
@@ -189,11 +201,11 @@ def main():
         if has_ai:
             st.success("Assistant grading: ON")
         else:
-            st.warning("Assistant grading: OFF (no secrets set)")
+            st.warning("Assistant grading: OFF")
         if "status_message" in st.session_state:
             st.info(st.session_state.status_message)
 
-    # ---------------- Config Form ----------------
+    # Config form
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
             all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
@@ -221,7 +233,7 @@ def main():
                 st.rerun()
         return
 
-    # ---------------- Active Quiz ----------------
+    # Active quiz
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
 
@@ -233,15 +245,10 @@ def main():
             st.rerun()
         return
 
-    # Generate next question if needed
     if q_index >= len(st.session_state.responses):
         st.session_state.status_message = "🟡 Generating next question..."
         progress = {"responses": st.session_state.responses}
-        new_q = generate_single_question(
-            st.session_state.selected_pairs,
-            progress,
-            st.session_state.usage_counter
-        )
+        new_q = generate_single_question(st.session_state.selected_pairs, progress, st.session_state.usage_counter)
         if new_q:
             st.session_state.current_q = new_q
             st.session_state.usage_counter[(new_q["unit"], new_q["subunit"])] += 1
@@ -252,11 +259,11 @@ def main():
 
     q = st.session_state.current_q
     st.subheader(f"Question {q_index+1} of {n_questions}")
-    st.write(f"**Sub-unit:** {q['subunit']}  |  **Marks:** {q.get('marks',1)}")
+    st.write(f"**Sub-unit:** {q['subunit']} | **Marks:** {q.get('marks',1)}")
     st.write(q["prompt"])
 
     if q["type"] == "mcq":
-        user_answer = st.radio("Choose:", q["options"])
+        user_answer = st.radio("Choose:", q.get("options", []))
     elif q["type"] == "numerical":
         user_answer = st.text_input(f"Your answer ({q.get('units','')})")
     else:
