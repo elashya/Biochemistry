@@ -109,73 +109,35 @@ def parse_json_from_content(content):
     except Exception:
         return None
 
-# ---------------- Solution Validation ----------------
-def validate_solution(question_json):
-    client = _get_openai_client()
-    if client is None:
-        return question_json
-    prompt = f"""
-You are an IGCSE Physics (0625) examiner.
-Recalculate the correct solution for this question:
-
-Question: {question_json['prompt']}
-
-Return ONLY corrected JSON with all the same fields,
-but ensure the 'answer' field is the correct solution,
-and update 'units' if needed.
-"""
-    try:
-        thread = client.beta.threads.create()
-        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0)
-        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-        if not msgs.data:
-            return question_json
-        content = extract_message_content(msgs.data[0])
-        corrected = parse_json_from_content(content)
-        return corrected if corrected else question_json
-    except Exception:
-        return question_json
-
 # ---------------- Question Generation ----------------
-def generate_single_question(selected_pairs, progress, usage_counter, paper_type="P2/4"):
+def generate_single_question(selected_pairs, progress, usage_counter, paper_type="P2"):
     client = _get_openai_client()
     if client is None:
         return None
 
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
 
-    if paper_type == "P1":  # Multiple Choice
+    if paper_type == "P1":
         paper_rules = """
 Generate ONE multiple-choice exam-style question for Cambridge IGCSE Physics (0625) Paper 1 (MCQ).
-
-Requirements:
-- Based ONLY on the selected sub-units.
 - Provide 4 options (A–D).
-- Ensure 3 distractors reflect common misconceptions reported by Cambridge examiners.
+- Ensure 3 distractors reflect common misconceptions.
 - Only 1 correct option.
 - Question worth 1 mark.
 """
-    elif paper_type == "P6":  # Alternative to Practical
+    elif paper_type == "P6":
         paper_rules = """
-Generate ONE practical/data-handling style exam question for Cambridge IGCSE Physics (0625) Paper 6 (Alternative to Practical).
-
-Requirements:
-- Focus ONLY on experiment-based or data analysis tasks.
-- Use realistic practical scenarios (tables, graphs, measurements, apparatus, sources of error).
-- May include: plotting a graph, completing a table, describing apparatus, identifying errors, suggesting improvements.
+Generate ONE practical/data-handling style exam question for Cambridge IGCSE Physics (0625) Paper 6.
+- Use experiment-based or data analysis tasks.
+- Include tables, graphs, apparatus, sources of error.
 - Allocate realistic marks (1–6 per part).
 """
-    else:  # Default → Paper 2/4 Theory
+    else:
         paper_rules = """
-Generate ONE structured exam-style question for Cambridge IGCSE Physics (0625) Paper 2/4 (Theory).
-
-Requirements:
-- Based ONLY on the selected sub-units.
-- Use Cambridge command words (state, explain, calculate, determine, describe, suggest).
-- Structure as multi-part (a), (b), (c) where suitable.
-- Allocate realistic marks (1–6 per part).
-- Ensure difficulty matches real Cambridge past paper questions.
+Generate ONE structured exam-style question for Cambridge IGCSE Physics (0625) Paper 2/4.
+- Use command words (state, explain, calculate, describe).
+- Multi-part if suitable.
+- Allocate realistic marks.
 """
 
     prompt = f"""
@@ -186,11 +148,8 @@ Student selected ONLY these sub-units:
 
 {paper_rules}
 
-Return ONLY valid JSON with fields:
-- id, unit, subunit, type, prompt, options (if mcq), answer, tolerance_abs (if numerical), units, marks,
-- technique, common_mistakes, marking_scheme, difficulty, command_words, source.
+Return ONLY valid JSON with fields: id, unit, subunit, type, prompt, options (if mcq), answer, tolerance_abs (if numerical), units, marks, technique, common_mistakes, marking_scheme, difficulty, command_words, source.
 """
-
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
@@ -199,121 +158,27 @@ Return ONLY valid JSON with fields:
 
         if not msgs.data:
             return None
-
         content = extract_message_content(msgs.data[0])
         raw_q = parse_json_from_content(content)
-
-        if raw_q:
-            return validate_solution(raw_q)
-        return None
-
+        return raw_q
     except Exception:
         return None
-
-# ---------------- Grading ----------------
-def assistant_grade(question, user_answer, max_marks):
-    client = _get_openai_client()
-    if client is None:
-        return None
-    prompt = f"""
-You are grading IGCSE Physics (0625).
-
-Question: {question['prompt']}
-Student answer: {user_answer}
-
-Important:
-- IGNORE any "answer" field provided with the question JSON.
-- Recalculate the correct solution yourself step by step.
-- Then grade the student’s answer compared to your recalculated solution.
-
-Return ONLY JSON with:
-- awarded (int marks)
-- correct (true/false)
-- feedback: list of 4 bullet points
-- expected: correct solution with units
-- correct_option: for MCQ only
-- related_techniques: list of 2–3 formulas or exam tips
-"""
-    try:
-        thread = client.beta.threads.create()
-        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.3)
-        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-        if not msgs.data:
-            return None
-        content = extract_message_content(msgs.data[0])
-        return parse_json_from_content(content)
-    except Exception:
-        return None
-
-# ---------------- Final Summary ----------------
-def generate_final_summary(responses):
-    client = _get_openai_client()
-    if client is None:
-        return None
-    prompt = f"""
-You are an IGCSE Physics (0625) examiner.
-Here are the student’s responses and grading details:
-{json.dumps(responses, indent=2)}
-
-Provide ONLY JSON with:
-- score: "X/Y and percentage"
-- strengths: list of 3 bullet points
-- weaknesses: list of 3 bullet points
-- study_hints: list of 3 bullet points
-- related_techniques: list of 3 exam tips or formulas
-"""
-    try:
-        thread = client.beta.threads.create()
-        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.3)
-        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-        if not msgs.data:
-            return None
-        content = extract_message_content(msgs.data[0])
-        return parse_json_from_content(content)
-    except Exception:
-        return None
-
-# ---------------- Helpers ----------------
-def reset_state():
-    for k in ["quiz_started","q_index","score","marks_total","responses",
-              "error_log","related_techniques_log","usage_counter","n_questions",
-              "selected_pairs","submitted","last_result","last_user_answer","current_q","paper_type"]:
-        st.session_state.pop(k, None)
-
-def render_header():
-    st.title(APP_TITLE)
-    st.caption("Adaptive mode: generates one question at a time, adjusting to performance.")
 
 # ---------------- Main ----------------
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📘")
     require_pin()
-    render_header()
-
-    # Sidebar progress
-    with st.sidebar:
-        st.write("### 📊 Progress")
-        st.write(f"Score: {st.session_state.get('score',0)}/{st.session_state.get('marks_total',0)}")
-        if "error_log" in st.session_state:
-            st.write("### ❌ Error Log")
-            for e in st.session_state["error_log"]:
-                st.markdown("- " + e)
-        if "related_techniques_log" in st.session_state:
-            st.write("### 📘 Related Techniques")
-            for t in st.session_state["related_techniques_log"]:
-                st.markdown("- " + t)
+    st.title(APP_TITLE)
+    st.caption("Adaptive mode: generates one question at a time, adjusting to performance.")
 
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            # Flatten all sub-units
             all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
             subunit_names = [f"{u} – {s}" for (u, s) in all_subunits]
             selected_names = st.multiselect("Select sub-units", subunit_names)
             selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
 
-            paper_type = st.selectbox("Select Paper Type", ["P1 (MCQ)", "P2/4 (Theory)", "P6 (Practical)"])
+            paper_type = st.selectbox("Select Paper Type", ["P1", "P2/4", "P6"], index=1)
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
             start = st.form_submit_button("▶️ Start Adaptive Quiz")
 
@@ -321,88 +186,53 @@ def main():
             if not selected_pairs:
                 st.error("Select at least one sub-unit.")
             else:
-                reset_state()
                 st.session_state.quiz_started = True
                 st.session_state.q_index = 0
                 st.session_state.score = 0
                 st.session_state.marks_total = 0
                 st.session_state.responses = []
-                st.session_state.error_log = []
-                st.session_state.related_techniques_log = []
-                st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
-                st.session_state.paper_type = "P1" if "P1" in paper_type else "P6" if "P6" in paper_type else "P2/4"
-                q = generate_single_question(selected_pairs, {}, defaultdict(int), st.session_state.paper_type)
-                if q:
-                    st.session_state.current_q = q
+                st.session_state.paper_type = paper_type
+                st.session_state.n_questions = n_questions
+                q = generate_single_question(selected_pairs, {}, defaultdict(int), paper_type)
+                if q: st.session_state.current_q = q
                 st.rerun()
         return
 
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
-    paper_type = st.session_state.paper_type
-
-    if q_index >= n_questions:
-        st.subheader("📊 Quiz Complete")
-        st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
-        summary = generate_final_summary(st.session_state.responses)
-        if summary:
-            st.write("### 🌟 Performance Summary")
-            st.write(f"**Score:** {summary.get('score','')}")
-            st.write("**Strengths:**")
-            for s in summary.get("strengths", []): st.markdown("- " + s)
-            st.write("**Weaknesses:**")
-            for w in summary.get("weaknesses", []): st.markdown("- " + w)
-            st.write("**Study Hints:**")
-            for h in summary.get("study_hints", []): st.markdown("- " + h)
-            st.write("**Related Techniques:**")
-            for t in summary.get("related_techniques", []): st.markdown("- " + t)
-        if st.button("🔁 Start again"):
-            reset_state(); st.rerun()
-        return
+    paper_type = st.session_state.get("paper_type", "P2/4")
 
     q = st.session_state.get("current_q", None)
     if not q:
         q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int), paper_type)
         if q: st.session_state.current_q = q
         else:
-            st.error("Failed to generate question."); return
+            st.error("Failed to generate question.")
+            return
 
     st.subheader(f"Question {q_index+1} of {n_questions}")
     st.write(q["prompt"])
-    user_answer = st.text_input("Your answer", key=f"ans_{q_index}")
 
+    user_input_key = f"ans_{q_index}"
     if not st.session_state.get("submitted", False):
+        if paper_type == "P1" and q.get("type") == "mcq" and "options" in q:
+            user_answer = st.radio("Choose one option:", q["options"], key=user_input_key)
+        elif paper_type == "P6":
+            user_answer = st.text_area("Your structured response:", key=user_input_key)
+        else:
+            user_answer = st.text_input("Your answer", key=user_input_key)
+
         if st.button("✅ Submit Answer"):
-            if not user_answer.strip():
+            if not str(user_answer).strip():
                 st.warning("⚠️ Please enter an answer before submitting.")
             else:
-                result = assistant_grade(q, user_answer, q.get("marks",1))
-                if result:
-                    st.session_state.submitted = True
-                    st.session_state.last_result = result
-                    st.session_state.last_user_answer = user_answer
-                    st.rerun()
+                st.session_state.submitted = True
+                st.session_state.last_user_answer = user_answer
+                st.rerun()
     else:
-        result = st.session_state.last_result
         st.success("Feedback")
-        for f in result.get("feedback", []): st.markdown("- " + f)
-
-        if len(st.session_state.responses) <= q_index:
-            st.session_state.score += result.get("awarded",0)
-            st.session_state.marks_total += q.get("marks",1)
-            st.session_state.responses.append({
-                "index": q_index,"prompt": q["prompt"],
-                "user_answer": st.session_state.last_user_answer,
-                "awarded": result.get("awarded",0),
-                "marks": q.get("marks",1),
-                "correct": result.get("correct",False)
-            })
-            if not result.get("correct", False):
-                st.session_state.error_log.append(f"Q{q_index+1}: {st.session_state.last_user_answer}")
-            for t in result.get("related_techniques", []):
-                st.session_state.related_techniques_log.append(f"Q{q_index+1}: {t}")
-
+        st.write("(Grading logic here)")
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
             st.session_state.submitted = False
