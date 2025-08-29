@@ -1,5 +1,5 @@
 import streamlit as st
-import json, time, os, re
+import json, os, re
 from collections import defaultdict
 
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
@@ -66,7 +66,7 @@ def _get_openai_client():
         return None
 
 def extract_message_content(msg):
-    """Extract raw content (text, json, fallback) from an Assistant message."""
+    """Extract raw content (text/json) from Assistant message."""
     out = []
     for part in msg.content:
         if part.type == "text":
@@ -76,13 +76,12 @@ def extract_message_content(msg):
         elif hasattr(part, "json"):
             out.append(json.dumps(part.json, indent=2))
         else:
-            out.append(str(part))  # fallback for unknown parts
+            out.append(str(part))  # fallback for unknown part types
     return "\n".join(out)
 
 def parse_json_from_content(content):
     """Parse JSON robustly from assistant output."""
-    # Always show raw output for debugging
-    st.sidebar.markdown("### 🔎 Raw Assistant output")
+    st.sidebar.markdown("### 🔎 Raw Assistant output (content string)")
     st.sidebar.code(content)
 
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
@@ -99,20 +98,17 @@ def parse_json_from_content(content):
     try:
         data = json.loads(raw_json)
         if isinstance(data, list):
-            if len(data) == 0:
-                st.error("⚠️ Assistant returned an empty list.")
-                return None
-            return data[0]
+            return data[0] if data else None
         return data
     except Exception as e:
-        st.error(f"⚠️ JSON parse error: {e}. See raw output in sidebar.")
+        st.error(f"⚠️ JSON parse error: {e}")
         return None
 
 def generate_single_question(selected_pairs, progress, usage_counter):
-    """Generate ONE adaptive question from Assistant."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
+        st.error("⚠️ Missing OpenAI client or ASSISTANT_ID.")
         return None
 
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
@@ -130,14 +126,7 @@ Coverage so far:
 Performance so far:
 {history_summary}
 
-Generate ONE exam-style question in JSON.
-Rules:
-- Question must be from the selected sub-units only.
-- Balance coverage (use sub-units less covered).
-- Adapt difficulty: easier if struggling, harder if doing well.
-- Style must match Cambridge IGCSE Physics 0625 past papers.
-
-Output ONLY JSON. No prose, no intro, no markdown.
+Generate ONE exam-style question in JSON only.
 """
 
     try:
@@ -145,12 +134,17 @@ Output ONLY JSON. No prose, no intro, no markdown.
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-        if not msgs.data:
-            return None
 
-        # Debug: show full assistant message
-        st.sidebar.markdown("### 🗂 Full Assistant message object")
-        st.sidebar.json(msgs.data[0].model_dump())
+        # Always debug log raw msgs object
+        st.sidebar.markdown("### 🗂 Full msgs object")
+        try:
+            st.sidebar.json(msgs.model_dump())
+        except Exception:
+            st.sidebar.write(str(msgs))
+
+        if not msgs.data:
+            st.error("⚠️ No messages returned from Assistant. Check ASSISTANT_ID.")
+            return None
 
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
@@ -159,7 +153,6 @@ Output ONLY JSON. No prose, no intro, no markdown.
         return None
 
 def assistant_grade(question, user_answer, max_marks):
-    """Grade answer via Assistant (JSON)."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
@@ -172,15 +165,7 @@ Question: {question['prompt']}
 Correct answer (for reference): {question.get('answer','')}
 Student answer: {user_answer}
 
-Return ONLY JSON:
-{{
-  "awarded": 0..{max_marks},
-  "max_marks": {max_marks},
-  "correct": true/false,
-  "feedback": ["Tip 1","Tip 2"],
-  "expected": "optional",
-  "correct_option": "optional"
-}}
+Return ONLY JSON with awarded marks and feedback.
 """
 
     try:
@@ -188,12 +173,16 @@ Return ONLY JSON:
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
         client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+
+        # Debug
+        st.sidebar.markdown("### 🗂 Full grading msgs object")
+        try:
+            st.sidebar.json(msgs.model_dump())
+        except Exception:
+            st.sidebar.write(str(msgs))
+
         if not msgs.data:
             return None
-
-        # Debug: show grading message
-        st.sidebar.markdown("### 🗂 Full Assistant grading message")
-        st.sidebar.json(msgs.data[0].model_dump())
 
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
@@ -224,7 +213,6 @@ def main():
         if "status_message" in st.session_state:
             st.info(st.session_state.status_message)
 
-    # Config form
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
             all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
@@ -252,7 +240,6 @@ def main():
                 st.rerun()
         return
 
-    # Active quiz
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
 
