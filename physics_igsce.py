@@ -5,30 +5,6 @@ from collections import defaultdict
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
-# ---------------- IGCSE Physics Syllabus ----------------
-SYLLABUS_UNITS = {
-    "General Physics": [
-        "Length & time", "Mass & weight", "Density",
-        "Speed, velocity & acceleration", "Forces & Newton’s laws",
-        "Turning effects of forces", "Momentum", "Energy/work/power", "Pressure"
-    ],
-    "Thermal Physics": [
-        "Kinetic model of matter", "Thermal properties & temperature", "Heat transfer"
-    ],
-    "Properties of Waves (Light & Sound)": [
-        "General wave properties", "Light (reflection, refraction, lenses, critical angle)",
-        "Sound"
-    ],
-    "Electricity & Magnetism": [
-        "Magnetism", "Electrical quantities", "Electric circuits",
-        "Digital electronics (logic gates)", "Dangers of electricity",
-        "Electromagnetism (motors, transformers, induction)"
-    ],
-    "Atomic Physics": [
-        "Nuclear model of atom", "Radioactivity", "Safety & uses of radioactivity"
-    ]
-}
-
 # ---------------- PIN ----------------
 def require_pin():
     APP_PIN = st.secrets.get("APP_PIN", None)
@@ -176,6 +152,7 @@ Return ONLY JSON with:
    2. Technique check
    3. Common mistake (if any)
    4. Improvement tip
+- related_techniques: list of 2–3 key formulas, methods, or exam tips relevant to this question
 """
 
     try:
@@ -223,8 +200,8 @@ Provide ONLY JSON with:
 # ---------------- Helpers ----------------
 def reset_state():
     for k in ["quiz_started","q_index","score","marks_total","responses",
-              "error_log","usage_counter","n_questions","selected_pairs",
-              "submitted","last_result","last_user_answer","current_q"]:
+              "error_log","related_techniques_log","usage_counter","n_questions",
+              "selected_pairs","submitted","last_result","last_user_answer","current_q"]:
         st.session_state.pop(k, None)
 
 def render_header():
@@ -241,23 +218,23 @@ def main():
     with st.sidebar:
         st.write("### 📊 Progress")
         st.write(f"Score: {st.session_state.get('score',0)}/{st.session_state.get('marks_total',0)}")
+
         if "error_log" in st.session_state:
             st.write("### ❌ Error Log")
             for e in st.session_state["error_log"]:
                 st.markdown("- " + e)
 
+        if "related_techniques_log" in st.session_state:
+            st.write("### 📘 Related Techniques")
+            for t in st.session_state["related_techniques_log"]:
+                st.markdown("- " + t)
+
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            # Build a flat list of all sub-units across all units
-            all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
-            subunit_names = [f"{u} – {s}" for (u, s) in all_subunits]  # Display "Unit – Subunit"
-            
+            subunit_names = ["Length & time", "Mass & weight", "Density",
+                             "Speed, velocity & acceleration"]
             selected_names = st.multiselect("Select sub-units", subunit_names)
-            
-            # Map selected names back to (unit, subunit) pairs
-            selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
-
-
+            selected_pairs = [("General Physics", s) for s in selected_names]
 
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
             start = st.form_submit_button("▶️ Start Adaptive Quiz")
@@ -273,6 +250,7 @@ def main():
                 st.session_state.marks_total = 0
                 st.session_state.responses = []
                 st.session_state.error_log = []
+                st.session_state.related_techniques_log = []
                 st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
                 q = generate_single_question(selected_pairs, {}, defaultdict(int))
@@ -354,6 +332,10 @@ def main():
             })
             if not result.get("correct", False):
                 st.session_state.error_log.append(f"Q{q_index+1}: {st.session_state.last_user_answer}")
+
+            # ✅ Save related techniques
+            for t in result.get("related_techniques", []):
+                st.session_state.related_techniques_log.append(f"Q{q_index+1}: {t}")
 
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
