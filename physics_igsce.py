@@ -1,10 +1,9 @@
 import streamlit as st
-import json, os, re
+import json, re
 from collections import defaultdict
 
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 
-# Hardcode Assistant ID
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
 SYLLABUS_UNITS = {
@@ -84,7 +83,6 @@ def parse_json_from_content(content):
 
     if not raw_json:
         return None
-
     try:
         data = json.loads(raw_json)
         if isinstance(data, list):
@@ -93,6 +91,7 @@ def parse_json_from_content(content):
     except Exception:
         return None
 
+# ---------------- Question Generation ----------------
 def generate_single_question(selected_pairs, progress, usage_counter):
     client = _get_openai_client()
     if client is None:
@@ -114,51 +113,88 @@ Performance so far:
 {history_summary}
 
 Generate ONE exam-style question in JSON only. 
-Vary the numbers, context, or wording each time. 
-Do NOT repeat previously asked questions exactly.
-
-IMPORTANT: Always output pure JSON, no extra text.
+Always vary numbers/contexts so it is not repeated.
 """
 
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        # Force temperature=0.7 for more variety
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
+        client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7
+        )
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
         if not msgs.data:
             return None
-
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception:
         return None
 
+# ---------------- Grading ----------------
 def assistant_grade(question, user_answer, max_marks):
     client = _get_openai_client()
     if client is None:
         return None
 
     prompt = f"""
-Evaluate this IGCSE Physics (0625) answer.
-
+You are grading IGCSE Physics (0625). 
 Question: {question['prompt']}
-Correct answer (for reference): {question.get('answer','')}
+Correct answer: {question.get('answer','')}
 Student answer: {user_answer}
 
-Return ONLY JSON with awarded marks and feedback.
+Return ONLY JSON with:
+- awarded (int marks)
+- correct (true/false)
+- feedback: list of 4 short bullet points covering:
+   1. Accuracy check (was value correct?)
+   2. Technique check (was method right?)
+   3. Common mistake (if any)
+   4. Tip for improvement (exam technique or concept reminder)
 """
 
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
+        client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7
+        )
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-
         if not msgs.data:
             return None
+        content = extract_message_content(msgs.data[0])
+        return parse_json_from_content(content)
+    except Exception:
+        return None
 
+# ---------------- Final Summary ----------------
+def generate_final_summary(responses):
+    client = _get_openai_client()
+    if client is None:
+        return None
+
+    prompt = f"""
+You are an IGCSE Physics (0625) examiner.
+Here are the student’s responses and grading details:
+{json.dumps(responses, indent=2)}
+
+Provide ONLY JSON with:
+- score: "X/Y and percentage"
+- strengths: list of 3 bullet points
+- weaknesses: list of 3 bullet points
+- study_hints: list of 3 bullet points
+- related_techniques: list of 3 exam tips or formulas
+"""
+
+    try:
+        thread = client.beta.threads.create()
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
+        client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7
+        )
+        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+        if not msgs.data:
+            return None
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception:
@@ -213,9 +249,7 @@ def main():
                 st.session_state.usage_counter = defaultdict(int)
                 st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
-                st.session_state.status_message = "🟡 Ready to generate first question"
                 st.session_state.submitted = False
-                # Generate the very first question
                 q = generate_single_question(st.session_state.selected_pairs, {}, st.session_state.usage_counter)
                 if q:
                     st.session_state.current_q = q
@@ -225,10 +259,27 @@ def main():
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
 
-    # End of quiz
     if q_index >= n_questions:
         st.subheader("📊 Quiz Complete")
         st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
+
+        summary = generate_final_summary(st.session_state.responses)
+        if summary:
+            st.write("### 🌟 Performance Summary")
+            st.write(f"**Score:** {summary.get('score','')}")
+            st.write("**Strengths:**")
+            for s in summary.get("strengths", []):
+                st.markdown("- " + s)
+            st.write("**Weaknesses:**")
+            for w in summary.get("weaknesses", []):
+                st.markdown("- " + w)
+            st.write("**Study Hints:**")
+            for h in summary.get("study_hints", []):
+                st.markdown("- " + h)
+            st.write("**Related Techniques & Tips:**")
+            for t in summary.get("related_techniques", []):
+                st.markdown("- " + t)
+
         if st.button("🔁 Start again"):
             reset_state()
             st.rerun()
@@ -258,7 +309,6 @@ def main():
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
 
-    # Submit Answer
     if not st.session_state.submitted:
         if st.button("✅ Submit Answer"):
             if not user_answer.strip():
@@ -281,7 +331,6 @@ def main():
         for f in feedback:
             st.markdown("- " + f)
 
-        # Update score/log only once
         if len(st.session_state.responses) <= q_index:
             st.session_state.score += awarded
             st.session_state.marks_total += q.get("marks",1)
@@ -300,7 +349,6 @@ def main():
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
             st.session_state.submitted = False
-            # Generate a new question for the next round
             new_q = generate_single_question(st.session_state.selected_pairs, {}, st.session_state.usage_counter)
             if new_q:
                 st.session_state.current_q = new_q
