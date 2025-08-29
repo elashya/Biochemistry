@@ -104,13 +104,17 @@ def parse_json_from_content(content):
         st.error(f"⚠️ JSON parse error: {e}")
         return None
 
+
+# Hardcode Assistant ID globally once at the top of your script
+ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
+
 def generate_single_question(selected_pairs, progress, usage_counter):
     client = _get_openai_client()
-    assistant_id = _get_secret("ASSISTANT_ID", None)
-    if client is None or not assistant_id:
-        st.error("⚠️ Missing OpenAI client or ASSISTANT_ID.")
+    if client is None:
+        st.error("⚠️ Missing OpenAI client (check API key).")
         return None
 
+    
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
     coverage = "\n".join([f"{sub}: {count}" for (_, sub), count in usage_counter.items()])
     history_summary = f"So far performance: {progress}" if progress else "No answers yet."
