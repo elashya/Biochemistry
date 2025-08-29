@@ -4,6 +4,9 @@ from collections import defaultdict
 
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 
+# Hardcode Assistant ID here
+ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
+
 SYLLABUS_UNITS = {
     "General Physics": [
         "Length & time", "Mass & weight", "Density",
@@ -29,19 +32,9 @@ SYLLABUS_UNITS = {
     ],
 }
 
-# ---------------- Secrets / PIN ----------------
-def _get_openai_client():
-    try:
-        from openai import OpenAI
-        api_key = st.secrets["OPENAI_API_KEY"]
-        return OpenAI(api_key=api_key)
-    except Exception as e:
-        st.error(f"⚠️ OpenAI client init failed: {e}")
-        return None
-
-
+# ---------------- PIN ----------------
 def require_pin():
-    APP_PIN = _get_secret("APP_PIN", None)
+    APP_PIN = st.secrets.get("APP_PIN", None)
     if not APP_PIN:
         return True
     if st.session_state.get("authed"):
@@ -60,17 +53,15 @@ def require_pin():
 
 # ---------------- OpenAI ----------------
 def _get_openai_client():
-    api_key = _get_secret("OPENAI_API_KEY", None)
-    if not api_key:
-        return None
     try:
         from openai import OpenAI
+        api_key = st.secrets["OPENAI_API_KEY"]
         return OpenAI(api_key=api_key)
-    except Exception:
+    except Exception as e:
+        st.error(f"⚠️ OpenAI client init failed: {e}")
         return None
 
 def extract_message_content(msg):
-    """Extract raw content (text/json) from Assistant message."""
     out = []
     for part in msg.content:
         if part.type == "text":
@@ -80,11 +71,10 @@ def extract_message_content(msg):
         elif hasattr(part, "json"):
             out.append(json.dumps(part.json, indent=2))
         else:
-            out.append(str(part))  # fallback for unknown part types
+            out.append(str(part))
     return "\n".join(out)
 
 def parse_json_from_content(content):
-    """Parse JSON robustly from assistant output."""
     st.sidebar.markdown("### 🔎 Raw Assistant output (content string)")
     st.sidebar.code(content)
 
@@ -108,17 +98,12 @@ def parse_json_from_content(content):
         st.error(f"⚠️ JSON parse error: {e}")
         return None
 
-
-# Hardcode Assistant ID globally once at the top of your script
-ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
-
 def generate_single_question(selected_pairs, progress, usage_counter):
     client = _get_openai_client()
     if client is None:
         st.error("⚠️ Missing OpenAI client (check API key).")
         return None
 
-    
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
     coverage = "\n".join([f"{sub}: {count}" for (_, sub), count in usage_counter.items()])
     history_summary = f"So far performance: {progress}" if progress else "No answers yet."
@@ -140,10 +125,9 @@ Generate ONE exam-style question in JSON only.
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
-        # Always debug log raw msgs object
         st.sidebar.markdown("### 🗂 Full msgs object")
         try:
             st.sidebar.json(msgs.model_dump())
@@ -151,7 +135,7 @@ Generate ONE exam-style question in JSON only.
             st.sidebar.write(str(msgs))
 
         if not msgs.data:
-            st.error("⚠️ No messages returned from Assistant. Check ASSISTANT_ID.")
+            st.error("⚠️ No messages returned from Assistant.")
             return None
 
         content = extract_message_content(msgs.data[0])
@@ -162,8 +146,7 @@ Generate ONE exam-style question in JSON only.
 
 def assistant_grade(question, user_answer, max_marks):
     client = _get_openai_client()
-    assistant_id = _get_secret("ASSISTANT_ID", None)
-    if client is None or not assistant_id:
+    if client is None:
         return None
 
     prompt = f"""
@@ -179,10 +162,9 @@ Return ONLY JSON with awarded marks and feedback.
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
-        # Debug
         st.sidebar.markdown("### 🗂 Full grading msgs object")
         try:
             st.sidebar.json(msgs.model_dump())
@@ -213,8 +195,11 @@ def main():
     render_header()
 
     with st.sidebar:
-        has_ai = bool(_get_secret("OPENAI_API_KEY") and _get_secret("ASSISTANT_ID"))
-        if has_ai:
+        try:
+            st.write("Secrets available:", list(st.secrets.keys()))
+        except Exception:
+            st.write("No secrets loaded.")
+        if "OPENAI_API_KEY" in st.secrets:
             st.success("Assistant grading: ON")
         else:
             st.warning("Assistant grading: OFF")
