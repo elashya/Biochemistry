@@ -5,6 +5,30 @@ from collections import defaultdict
 APP_TITLE = "IGCSE Physics (0625) — Adaptive Practice (Dynamic Assistant)"
 ASSISTANT_ID = "asst_6V33q7Edl4vlh4fiER6OG09d"
 
+# ---------------- IGCSE Physics Syllabus ----------------
+SYLLABUS_UNITS = {
+    "General Physics": [
+        "Length & time", "Mass & weight", "Density",
+        "Speed, velocity & acceleration", "Forces & Newton’s laws",
+        "Turning effects of forces", "Momentum", "Energy/work/power", "Pressure"
+    ],
+    "Thermal Physics": [
+        "Kinetic model of matter", "Thermal properties & temperature", "Heat transfer"
+    ],
+    "Properties of Waves (Light & Sound)": [
+        "General wave properties", "Light (reflection, refraction, lenses, critical angle)",
+        "Sound"
+    ],
+    "Electricity & Magnetism": [
+        "Magnetism", "Electrical quantities", "Electric circuits",
+        "Digital electronics (logic gates)", "Dangers of electricity",
+        "Electromagnetism (motors, transformers, induction)"
+    ],
+    "Atomic Physics": [
+        "Nuclear model of atom", "Radioactivity", "Safety & uses of radioactivity"
+    ]
+}
+
 # ---------------- PIN ----------------
 def require_pin():
     APP_PIN = st.secrets.get("APP_PIN", None)
@@ -66,11 +90,9 @@ def parse_json_from_content(content):
 
 # ---------------- Solution Validation ----------------
 def validate_solution(question_json):
-    """Use assistant to recompute and correct the solution."""
     client = _get_openai_client()
     if client is None:
         return question_json
-
     prompt = f"""
 You are an IGCSE Physics (0625) examiner.
 Recalculate the correct solution for this question:
@@ -81,7 +103,6 @@ Return ONLY corrected JSON with all the same fields,
 but ensure the 'answer' field is the correct solution,
 and update 'units' if needed.
 """
-
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
@@ -97,11 +118,9 @@ and update 'units' if needed.
 
 # ---------------- Question Generation ----------------
 def generate_single_question(selected_pairs, progress, usage_counter):
-    """Generate a new question and immediately validate its solution."""
     client = _get_openai_client()
     if client is None:
         return None
-
     subunits_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
     prompt = f"""
 You are a Cambridge IGCSE Physics (0625) tutor.
@@ -111,7 +130,6 @@ Student selected ONLY these sub-units:
 Generate ONE exam-style question in JSON only.
 Fields: id, unit, subunit, type, prompt, marks, units, answer (initial guess).
 """
-
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
@@ -122,7 +140,7 @@ Fields: id, unit, subunit, type, prompt, marks, units, answer (initial guess).
         content = extract_message_content(msgs.data[0])
         raw_q = parse_json_from_content(content)
         if raw_q:
-            return validate_solution(raw_q)  # ✅ ensure corrected answer
+            return validate_solution(raw_q)
         return None
     except Exception:
         return None
@@ -132,7 +150,6 @@ def assistant_grade(question, user_answer, max_marks):
     client = _get_openai_client()
     if client is None:
         return None
-
     prompt = f"""
 You are grading IGCSE Physics (0625).
 
@@ -147,14 +164,9 @@ Important:
 Return ONLY JSON with:
 - awarded (int marks)
 - correct (true/false)
-- feedback: list of 4 bullet points covering:
-   1. Accuracy check
-   2. Technique check
-   3. Common mistake (if any)
-   4. Improvement tip
-- related_techniques: list of 2–3 key formulas, methods, or exam tips relevant to this question
+- feedback: list of 4 bullet points
+- related_techniques: list of 2–3 formulas or exam tips
 """
-
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
@@ -172,7 +184,6 @@ def generate_final_summary(responses):
     client = _get_openai_client()
     if client is None:
         return None
-
     prompt = f"""
 You are an IGCSE Physics (0625) examiner.
 Here are the student’s responses and grading details:
@@ -214,16 +225,14 @@ def main():
     require_pin()
     render_header()
 
-    # Sidebar progress bar
+    # Sidebar progress
     with st.sidebar:
         st.write("### 📊 Progress")
         st.write(f"Score: {st.session_state.get('score',0)}/{st.session_state.get('marks_total',0)}")
-
         if "error_log" in st.session_state:
             st.write("### ❌ Error Log")
             for e in st.session_state["error_log"]:
                 st.markdown("- " + e)
-
         if "related_techniques_log" in st.session_state:
             st.write("### 📘 Related Techniques")
             for t in st.session_state["related_techniques_log"]:
@@ -231,10 +240,11 @@ def main():
 
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
-            subunit_names = ["Length & time", "Mass & weight", "Density",
-                             "Speed, velocity & acceleration"]
+            # ✅ Flatten all sub-units
+            all_subunits = [(u, s) for u, subs in SYLLABUS_UNITS.items() for s in subs]
+            subunit_names = [f"{u} – {s}" for (u, s) in all_subunits]
             selected_names = st.multiselect("Select sub-units", subunit_names)
-            selected_pairs = [("General Physics", s) for s in selected_names]
+            selected_pairs = [pair for pair, label in zip(all_subunits, subunit_names) if label in selected_names]
 
             n_questions = st.number_input("Number of questions", 3, 20, 5, 1)
             start = st.form_submit_button("▶️ Start Adaptive Quiz")
@@ -265,41 +275,31 @@ def main():
     if q_index >= n_questions:
         st.subheader("📊 Quiz Complete")
         st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
-
         summary = generate_final_summary(st.session_state.responses)
         if summary:
             st.write("### 🌟 Performance Summary")
             st.write(f"**Score:** {summary.get('score','')}")
             st.write("**Strengths:**")
-            for s in summary.get("strengths", []):
-                st.markdown("- " + s)
+            for s in summary.get("strengths", []): st.markdown("- " + s)
             st.write("**Weaknesses:**")
-            for w in summary.get("weaknesses", []):
-                st.markdown("- " + w)
+            for w in summary.get("weaknesses", []): st.markdown("- " + w)
             st.write("**Study Hints:**")
-            for h in summary.get("study_hints", []):
-                st.markdown("- " + h)
+            for h in summary.get("study_hints", []): st.markdown("- " + h)
             st.write("**Related Techniques:**")
-            for t in summary.get("related_techniques", []):
-                st.markdown("- " + t)
-
+            for t in summary.get("related_techniques", []): st.markdown("- " + t)
         if st.button("🔁 Start again"):
-            reset_state()
-            st.rerun()
+            reset_state(); st.rerun()
         return
 
     q = st.session_state.get("current_q", None)
     if not q:
         q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int))
-        if q:
-            st.session_state.current_q = q
+        if q: st.session_state.current_q = q
         else:
-            st.error("Failed to generate question.")
-            return
+            st.error("Failed to generate question."); return
 
     st.subheader(f"Question {q_index+1} of {n_questions}")
     st.write(q["prompt"])
-
     user_answer = st.text_input("Your answer", key=f"ans_{q_index}")
 
     if not st.session_state.get("submitted", False):
@@ -316,15 +316,13 @@ def main():
     else:
         result = st.session_state.last_result
         st.success("Feedback")
-        for f in result.get("feedback", []):
-            st.markdown("- " + f)
+        for f in result.get("feedback", []): st.markdown("- " + f)
 
         if len(st.session_state.responses) <= q_index:
             st.session_state.score += result.get("awarded",0)
             st.session_state.marks_total += q.get("marks",1)
             st.session_state.responses.append({
-                "index": q_index,
-                "prompt": q["prompt"],
+                "index": q_index,"prompt": q["prompt"],
                 "user_answer": st.session_state.last_user_answer,
                 "awarded": result.get("awarded",0),
                 "marks": q.get("marks",1),
@@ -332,8 +330,6 @@ def main():
             })
             if not result.get("correct", False):
                 st.session_state.error_log.append(f"Q{q_index+1}: {st.session_state.last_user_answer}")
-
-            # ✅ Save related techniques
             for t in result.get("related_techniques", []):
                 st.session_state.related_techniques_log.append(f"Q{q_index+1}: {t}")
 
@@ -341,8 +337,7 @@ def main():
             st.session_state.q_index += 1
             st.session_state.submitted = False
             new_q = generate_single_question(st.session_state.selected_pairs, {}, defaultdict(int))
-            if new_q:
-                st.session_state.current_q = new_q
+            if new_q: st.session_state.current_q = new_q
             st.rerun()
 
 if __name__ == "__main__":
