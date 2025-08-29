@@ -66,23 +66,24 @@ def _get_openai_client():
         return None
 
 def extract_message_content(msg):
-    """Extract raw content (text, output_text, json) from an Assistant message."""
+    """Extract raw content (text, json, fallback) from an Assistant message."""
     out = []
     for part in msg.content:
         if part.type == "text":
             out.append(part.text.value)
-        elif part.type == "output_text":  # some SDKs use this
-            out.append(part.text)
-        elif part.type == "json":
-            # Assistant returned structured JSON
-            return json.dumps(part.json, indent=2)
+        elif hasattr(part, "text"):
+            out.append(str(part.text))
+        elif hasattr(part, "json"):
+            out.append(json.dumps(part.json, indent=2))
+        else:
+            out.append(str(part))  # fallback for unknown parts
     return "\n".join(out)
 
 def parse_json_from_content(content):
     """Parse JSON robustly from assistant output."""
-    # Debug: always show raw output in sidebar
+    # Always show raw output for debugging
     st.sidebar.markdown("### 🔎 Raw Assistant output")
-    st.sidebar.code(content, language="json")
+    st.sidebar.code(content)
 
     fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
     if fence_match:
@@ -146,6 +147,11 @@ Output ONLY JSON. No prose, no intro, no markdown.
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
+
+        # Debug: show full assistant message
+        st.sidebar.markdown("### 🗂 Full Assistant message object")
+        st.sidebar.json(msgs.data[0].model_dump())
+
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception as e:
@@ -184,6 +190,11 @@ Return ONLY JSON:
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
+
+        # Debug: show grading message
+        st.sidebar.markdown("### 🗂 Full Assistant grading message")
+        st.sidebar.json(msgs.data[0].model_dump())
+
         content = extract_message_content(msgs.data[0])
         return parse_json_from_content(content)
     except Exception:
