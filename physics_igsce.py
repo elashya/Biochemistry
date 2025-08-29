@@ -1,12 +1,12 @@
-
 import streamlit as st
-import json, random, time, os, re
+import json, time, os, re
 from collections import defaultdict
 
 # ----------------------
-# App Config & Constants
+# Config
 # ----------------------
-APP_TITLE = "IGCSE Physics (0625) — Timed Exam Practice (Assistant-Enforced)"
+APP_TITLE = "IGCSE Physics (0625) — Timed Exam Practice (Dynamic Assistant)"
+
 SYLLABUS_UNITS = {
     "General Physics": [
         "Length & time", "Mass & weight", "Density",
@@ -33,7 +33,7 @@ SYLLABUS_UNITS = {
 }
 
 # ----------------------
-# Secrets / PIN helpers
+# Secrets / PIN
 # ----------------------
 def _get_secret(name, default=None):
     try:
@@ -46,7 +46,7 @@ def require_pin():
     APP_PIN = _get_secret("APP_PIN", None)
     if not APP_PIN:
         st.sidebar.warning("Admin: Set APP_PIN in Streamlit Secrets to enable the PIN gate.")
-        return True  # allow in dev
+        return True
     if st.session_state.get("authed"):
         return True
     with st.form("pin_form"):
@@ -65,154 +65,126 @@ def require_pin():
 # OpenAI Assistants API
 # ----------------------
 def _get_openai_client():
-    """Create OpenAI client using the official SDK (v1.x)."""
     api_key = _get_secret("OPENAI_API_KEY", None)
     if not api_key:
         return None
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-        return client
+        return OpenAI(api_key=api_key)
     except Exception:
         return None
 
-def assistant_grade(question, user_answer, max_marks):
-    """
-    Ask your configured Assistant (whose system instructions enforce syllabus/technique/common mistakes)
-    to evaluate the answer and return a compact JSON.
-
-    The assistant should return JSON like:
-    {
-      "awarded": 2,
-      "max_marks": 3,
-      "correct": true,
-      "feedback": ["point 1", "point 2"],
-      "expected": "7.0 N·m",
-      "correct_option": "B"
-    }
-    """
+def generate_questions_from_assistant(selected_pairs, n_questions):
+    """Ask the Assistant to generate questions dynamically in JSON."""
     client = _get_openai_client()
     assistant_id = _get_secret("ASSISTANT_ID", None)
     if client is None or not assistant_id:
-        return None  # No assistant available; caller can fallback to local grading
+        st.error("Assistant not available. Please set OPENAI_API_KEY and ASSISTANT_ID in Secrets.")
+        return []
 
-    # Build a strict instruction for a JSON-only response
-    json_schema_hint = f"""
-Return ONLY a JSON object with keys:
-- "awarded" (integer 0..{max_marks})
-- "max_marks" ({max_marks})
-- "correct" (boolean)
-- "feedback" (array of 1-5 short strings)
-- "expected" (string, optional)
-- "correct_option" (string, optional)
-
-No prose outside JSON.
-"""
-
+    units_info = "\n".join([f"- {u} → {s}" for (u, s) in selected_pairs])
     payload = f"""
-Question (IGCSE Physics 0625 exam style):
-{question['prompt']}
+You are a Cambridge IGCSE Physics (0625) exam question generator.
+Generate {n_questions} questions in JSON format.
 
-Metadata:
-- Unit: {question['unit']}
-- Sub-unit: {question['subunit']}
-- Marks for this question: {max_marks}
-- Type: {question['type']}
-- Marking scheme (if provided): {question.get('marking_scheme', '(none)')}
-- Technique cues: {', '.join(question.get('technique', []))}
-- Common mistakes to warn about: {', '.join(question.get('common_mistakes', []))}
-- Correct numeric answer/MCQ option (for reference when awarding marks): {question.get('answer', '(n/a)')} {question.get('units','')}
-- Keywords for short answer (if any): {question.get('keywords', [])}
-- Options (for MCQ, if any): {question.get('options', [])}
+Target units/sub-units:
+{units_info}
 
-Student's answer:
-{str(user_answer)}
+Each question must include:
+- id
+- unit
+- subunit
+- type (numerical | mcq | short_text)
+- prompt
+- options (mcq only)
+- answer
+- tolerance_abs (if numerical)
+- units (if numerical)
+- marks
+- technique
+- common_mistakes
+- marking_scheme
+- source
 
-Scoring rule:
-- Use Cambridge-style marking: method marks + accuracy/units where applicable.
-- Award an integer from 0 to {max_marks}.
-- Always include 1-3 actionable improvement tips in "feedback".
-- If the student's answer is numerical, include expected value + units in "expected".
-- If MCQ, include the correct option in "correct_option".
-
-{json_schema_hint}
+Rules:
+- Output ONLY a valid JSON array, no extra text.
+- Questions must match Cambridge IGCSE Physics (0625) style and difficulty.
+- Include realistic marking scheme, technique, and common mistakes.
 """
-
     try:
-        # Create a new ephemeral thread per request
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
             content=payload
         )
-        # Run with the fixed assistant (system instructions live there)
-        run = client.beta.threads.runs.create_and_poll(
+        client.beta.threads.runs.create_and_poll(
             thread_id=thread.id,
             assistant_id=assistant_id,
-            temperature=0.2,
+            temperature=0.3,
             top_p=0.9
         )
-        # Fetch messages
+        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+        if not msgs.data:
+            return []
+        content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
+        match = re.search(r'\[.*\]', content, re.DOTALL)
+        return json.loads(match.group(0)) if match else []
+    except Exception as e:
+        st.error(f"Error generating questions: {e}")
+        return []
+
+def assistant_grade(question, user_answer, max_marks):
+    """Ask the Assistant to grade a single answer and return JSON feedback."""
+    client = _get_openai_client()
+    assistant_id = _get_secret("ASSISTANT_ID", None)
+    if client is None or not assistant_id:
+        return None
+
+    payload = f"""
+Evaluate the student's answer for the following Physics question:
+
+Question: {question['prompt']}
+Unit: {question['unit']} | Sub-unit: {question['subunit']}
+Type: {question['type']}
+Correct answer (for reference): {question.get('answer','')}
+Student answer: {user_answer}
+
+Return JSON with:
+- awarded (0..{max_marks})
+- max_marks
+- correct (true/false)
+- feedback (list of 1-3 tips)
+- expected (string, optional)
+- correct_option (string, optional)
+Only output JSON, nothing else.
+"""
+    try:
+        thread = client.beta.threads.create()
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=payload)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=assistant_id)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
-        content = ""
-        parts = msgs.data[0].content
-        for p in parts:
-            if getattr(p, "type", "") == "text":
-                content += p.text.value
-        # Extract JSON (some assistants may wrap it in fencing)
+        content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
         match = re.search(r'\{.*\}', content, re.DOTALL)
-        if not match:
-            return None
-        import json as _json
-        data = _json.loads(match.group(0))
-        return data
-    except Exception as e:
-        # For robustness, fail silently to allow local fallback
+        return json.loads(match.group(0)) if match else None
+    except Exception:
         return None
 
 # ----------------------
-# Local helpers & data
+# Quiz Helpers
 # ----------------------
-def load_questions(path="questions.json"):
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def numerical_correct(user_value, correct_value, tol_abs=None, tol_rel=None):
-    try:
-        x = float(str(user_value).strip())
-    except Exception:
-        return False
-    if tol_abs is not None and abs(x - correct_value) <= tol_abs:
-        return True
-    if tol_rel is not None:
-        if correct_value == 0:
-            return abs(x - correct_value) <= (tol_abs if tol_abs is not None else 0.0)
-        return abs(x - correct_value) / abs(correct_value) <= tol_rel
-    return abs(x - correct_value) < 1e-9
-
-def short_text_correct(user_text, keywords):
-    if not isinstance(keywords, list) or len(keywords) == 0:
-        return False
-    text = (user_text or "").lower().strip()
-    return all(kw.lower() in text for kw in keywords)
-
 def reset_state():
-    for k in [
-        "quiz_started","selected_qs","q_index","score","marks_total","responses",
-        "error_log","start_ts","end_ts","duration_min"
-    ]:
+    for k in ["quiz_started","selected_qs","q_index","score","marks_total",
+              "responses","error_log","start_ts","end_ts","duration_min"]:
         st.session_state.pop(k, None)
 
-def start_quiz(questions, selected_pairs, n_questions, duration_min):
-    filtered = [q for q in questions if (q["unit"], q["subunit"]) in selected_pairs]
-    if len(filtered) == 0:
-        st.warning("No questions match the selected units/sub-units. Please adjust your selection.")
+def start_quiz(selected_pairs, n_questions, duration_min):
+    selected = generate_questions_from_assistant(selected_pairs, n_questions)
+    if len(selected) == 0:
+        st.warning("No questions generated. Try different units/sub-units.")
         return
-    random.shuffle(filtered)
-    selected = filtered[:n_questions]
     st.session_state.quiz_started = True
     st.session_state.selected_qs = selected
     st.session_state.q_index = 0
@@ -226,10 +198,10 @@ def start_quiz(questions, selected_pairs, n_questions, duration_min):
 
 def render_header():
     st.title(APP_TITLE)
-    st.caption("Assistant-enforced: official Cambridge IGCSE Physics (0625) syllabus & grade descriptions (2023–2025).")
+    st.caption("Powered by Assistant ID (dynamic question generation + grading).")
     st.markdown(
-        "- **Syllabus (2023–2025)**: https://www.cambridgeinternational.org/Images/595430-2023-2025-syllabus.pdf\n"
-        "- **Grade Descriptions (2023–2025)**: https://www.cambridgeinternational.org/Images/730281-2023-2025-grade-descriptions.pdf"
+        "- **Syllabus**: [0625 Physics 2023–2025](https://www.cambridgeinternational.org/Images/595430-2023-2025-syllabus.pdf)\n"
+        "- **Grade Descriptions**: [2023–2025](https://www.cambridgeinternational.org/Images/730281-2023-2025-grade-descriptions.pdf)"
     )
 
 def time_remaining_text():
@@ -239,70 +211,19 @@ def time_remaining_text():
     m, s = divmod(remaining, 60)
     return f"⏳ Time remaining: **{m:02d}:{s:02d}**"
 
-# ----------------------
-# Grading path (Assistant first, fallback local)
-# ----------------------
 def grade_with_assistant_or_local(q, user_answer):
-    # 1) Try assistant grading
     max_marks = q.get("marks", 1)
     data = assistant_grade(q, user_answer, max_marks)
     if data:
-        # Trust awarded value, cap within 0..max
         awarded = int(max(0, min(max_marks, data.get("awarded", 0))))
         correct = bool(data.get("correct", awarded == max_marks))
-        feedback_points = []
-        if isinstance(data.get("feedback"), list):
-            feedback_points.extend([str(x) for x in data["feedback"][:5]])
-        expected = data.get("expected")
-        correct_option = data.get("correct_option")
-        if expected:
-            feedback_points.append(f"**Expected**: {expected}")
-        if correct_option and q["type"] == "mcq":
-            feedback_points.append(f"**Correct option**: {correct_option}")
+        feedback_points = [str(x) for x in data.get("feedback", [])]
+        if "expected" in data:
+            feedback_points.append(f"**Expected**: {data['expected']}")
+        if "correct_option" in data and q["type"] == "mcq":
+            feedback_points.append(f"**Correct option**: {data['correct_option']}")
         return correct, awarded, feedback_points
-
-    # 2) Fallback to deterministic local grading
-    q_type = q["type"]
-    correct = False
-    awarded = 0
-    feedback_points = []
-    if q_type == "mcq":
-        correct = (user_answer == q["answer"])
-        awarded = q.get("marks",1) if correct else 0
-    elif q_type == "numerical":
-        tol_abs = q.get("tolerance_abs")
-        tol_rel = q.get("tolerance_rel")
-        try:
-            correct = numerical_correct(user_answer, float(q["answer"]), tol_abs, tol_rel)
-        except Exception:
-            correct = False
-        awarded = q.get("marks",1) if correct else 0
-    elif q_type == "short_text":
-        keywords = q.get("keywords", [])
-        correct = short_text_correct(user_answer, keywords)
-        awarded = q.get("marks",1) if correct else 0
-    else:
-        st.error("Unknown question type.")
-        return False, 0, []
-
-    # Feedback payload
-    if correct:
-        feedback_points.append("✅ Correct. Good application of technique.")
-    else:
-        feedback_points.append("❌ Not correct.")
-
-    if q.get("marking_scheme"):
-        feedback_points.append(f"**Marking scheme**: {q['marking_scheme']}")
-    if q.get("technique"):
-        feedback_points.append("**Technique**: " + "; ".join(q["technique"]))
-    if q.get("common_mistakes"):
-        feedback_points.append("**Common mistakes**: " + "; ".join(q["common_mistakes"]))
-    if q_type == "numerical":
-        feedback_points.append(f"**Expected**: {q['answer']} {q.get('units','')}")
-    if q_type == "mcq":
-        feedback_points.append(f"**Correct option**: {q['answer']}")
-
-    return correct, awarded, feedback_points
+    return False, 0, ["❌ Unable to grade (Assistant unavailable)."]
 
 def end_quiz_summary():
     st.subheader("📊 Summary & Score")
@@ -310,64 +231,49 @@ def end_quiz_summary():
     total = st.session_state.marks_total
     pct = 100.0 * score / total if total else 0.0
     st.metric("Final Score", f"{score} / {total}", f"{pct:.1f}%")
-
     rows = []
-    per_topic = defaultdict(lambda: {"marks":0, "scored":0, "count":0})
+    per_topic = defaultdict(lambda: {"marks":0, "scored":0})
     for r in st.session_state.responses:
         key = (r["unit"], r["subunit"])
         per_topic[key]["marks"] += r["marks"]
         per_topic[key]["scored"] += r["awarded"]
-        per_topic[key]["count"] += 1
         rows.append({
             "Q#": r["index"]+1,
-            "Unit": r["unit"],
-            "Sub-unit": r["subunit"],
+            "Unit": r["unit"], "Sub-unit": r["subunit"],
             "Result": "✓" if r["correct"] else "✗",
-            "Marks": r["marks"],
-            "Awarded": r["awarded"],
+            "Marks": r["marks"], "Awarded": r["awarded"],
             "Your answer": r["user_answer"],
             "Correct/Expected": r.get("correct_display",""),
-            "Source": r.get("source","")
+            "Source": r.get("source","Generated")
         })
     if rows:
         st.dataframe(rows, use_container_width=True)
-
-    st.subheader("🧭 Topic Focus Suggestions")
+    st.subheader("🧭 Focus Suggestions")
     weak = sorted(per_topic.items(), key=lambda kv: (kv[1]["scored"]/(kv[1]["marks"] or 1e-9)))
     for i, ((unit, sub), stats) in enumerate(weak[:5], start=1):
         rate = 100.0*stats["scored"]/(stats["marks"] or 1e-9)
-        st.write(f"{i}. **{unit} → {sub}**: {rate:.0f}% — revisit formulas, units, and worked examples.")
-
+        st.write(f"{i}. **{unit} → {sub}**: {rate:.0f}% — revise with marking schemes.")
     if st.session_state.error_log:
-        st.download_button(
-            "Download error log (CSV)",
-            data="\n".join(st.session_state.error_log).encode("utf-8"),
-            file_name="error_log.csv",
-            mime="text/csv"
-        )
+        st.download_button("Download error log", "\n".join(st.session_state.error_log), "error_log.csv")
 
     if st.button("🔁 Start another quiz"):
         reset_state()
         st.rerun()
 
 # ----------------------
-# UI
+# Main UI
 # ----------------------
 def main():
-    st.set_page_config(page_title=APP_TITLE, page_icon="📘", layout="centered")
+    st.set_page_config(page_title=APP_TITLE, page_icon="📘")
     require_pin()
     render_header()
 
-    # Secrets check for Assistant ID
     with st.sidebar:
-        st.header("Settings")
-        has_ai = bool(_get_secret("OPENAI_API_KEY", None) and _get_secret("ASSISTANT_ID", None))
+        has_ai = bool(_get_secret("OPENAI_API_KEY") and _get_secret("ASSISTANT_ID"))
         if has_ai:
-            st.success("Assistant grading: ON (system instructions enforced).")
+            st.success("Assistant grading: ON")
         else:
-            st.warning("Assistant grading: OFF (fallback to local rules). Add OPENAI_API_KEY and ASSISTANT_ID in Secrets.")
-
-    questions = load_questions()
+            st.warning("Assistant grading: OFF (no secrets set)")
 
     # Config form
     if not st.session_state.get("quiz_started"):
@@ -375,24 +281,23 @@ def main():
             units_selected = st.multiselect("Select units", list(SYLLABUS_UNITS.keys()))
             selected_pairs = []
             for u in units_selected:
-                subs = st.multiselect(f"Sub-units from **{u}**", SYLLABUS_UNITS[u], key=f"subs_{u}")
+                subs = st.multiselect(f"Sub-units for **{u}**", SYLLABUS_UNITS[u], key=f"subs_{u}")
                 selected_pairs.extend((u, s) for s in subs)
-            n_questions = st.number_input("Number of questions", min_value=3, max_value=40, value=10, step=1)
+            n_questions = st.number_input("Number of questions", min_value=3, max_value=40, value=5, step=1)
             duration_min = st.number_input("Exam time (minutes)", min_value=10, max_value=180, value=30, step=5)
             start = st.form_submit_button("▶️ Start Quiz")
         if start:
-            if len(selected_pairs) == 0:
-                st.error("Please select at least one sub-unit.")
+            if not selected_pairs:
+                st.error("Select at least one sub-unit.")
             else:
-                start_quiz(questions, selected_pairs, n_questions, duration_min)
+                start_quiz(selected_pairs, n_questions, duration_min)
                 st.rerun()
-        st.info("💡 Tip: Choose a mix of sub-units and keep time strict to simulate real exam conditions.")
         return
 
-    # Active quiz
+    # Active Quiz
     st.info(time_remaining_text())
     if time.time() >= st.session_state.end_ts:
-        st.warning("⏰ Time is up! Submitting your quiz...")
+        st.warning("⏰ Time is up! Submitting...")
         end_quiz_summary()
         return
 
@@ -405,16 +310,12 @@ def main():
     q = selected[q_index]
     st.subheader(f"Question {q_index+1} of {len(selected)}")
     st.markdown(f"**Unit:** {q['unit']}  \n**Sub-unit:** {q['subunit']}  \n**Marks:** {q.get('marks',1)}")
-    st.markdown("—" * 20)
     st.write(q["prompt"])
-    if q.get("source"):
-        st.caption(f"Source: {q['source']}")
 
-    # Input widget
     if q["type"] == "mcq":
         user_answer = st.radio("Choose an option:", q["options"], index=0)
     elif q["type"] == "numerical":
-        user_answer = st.text_input(f"Your answer ({q.get('units','')})", value="")
+        user_answer = st.text_input(f"Your answer ({q.get('units','')})")
     elif q["type"] == "short_text":
         user_answer = st.text_area("Your short answer", height=120)
     else:
@@ -422,47 +323,24 @@ def main():
         return
 
     if st.button("✅ Submit Answer"):
-        correct, awarded, feedback_points = grade_with_assistant_or_local(q, user_answer)
+        correct, awarded, feedback = grade_with_assistant_or_local(q, user_answer)
         st.session_state.score += awarded
-
-        # Save response
-        resp = {
-            "index": q_index,
-            "unit": q["unit"],
-            "subunit": q["subunit"],
-            "marks": q.get("marks",1),
-            "awarded": awarded,
-            "correct": correct,
-            "user_answer": user_answer,
-            "source": q.get("source","")
-        }
-        if q["type"] == "numerical":
-            resp["correct_display"] = f"{q['answer']} {q.get('units','')}"
-        elif q["type"] == "mcq":
-            resp["correct_display"] = q["answer"]
-        else:
-            resp["correct_display"] = ""
-        st.session_state.responses.append(resp)
-
-        # Feedback
+        st.session_state.responses.append({
+            "index": q_index, "unit": q["unit"], "subunit": q["subunit"],
+            "marks": q.get("marks",1), "awarded": awarded, "correct": correct,
+            "user_answer": user_answer, "source": "Generated"
+        })
         st.success("Feedback")
-        for p in feedback_points:
-            st.markdown("- " + str(p))
-
-        # Error log line
+        for f in feedback:
+            st.markdown("- " + f)
         if not correct:
-            st.session_state.error_log.append(
-                f"{q['unit']} | {q['subunit']} | Q{q_index+1} | Your: {user_answer} | Expected: {resp['correct_display']}"
-            )
-
+            st.session_state.error_log.append(f"{q['unit']} | {q['subunit']} | Q{q_index+1} | Your: {user_answer}")
         if st.button("➡️ Next question"):
             st.session_state.q_index += 1
             st.rerun()
 
-    st.markdown("---")
     if st.button("🛑 End quiz now"):
         end_quiz_summary()
 
 if __name__ == "__main__":
     main()
-
