@@ -1,0 +1,251 @@
+[
+  {
+    "id": "GP-01",
+    "unit": "General Physics",
+    "subunit": "Speed, velocity & acceleration",
+    "type": "numerical",
+    "prompt": "A car accelerates uniformly from 10 m/s to 22 m/s in 6.0 s. Calculate its acceleration.",
+    "answer": 2.0,
+    "tolerance_abs": 0.05,
+    "units": "m/s^2",
+    "marks": 2,
+    "technique": [
+      "Use a = (v - u) / t",
+      "State formula → substitute → answer with units"
+    ],
+    "common_mistakes": [
+      "Forgetting to subtract u from v",
+      "Missing units"
+    ],
+    "marking_scheme": "a=(22-10)/6 = 2.0 m/s^2. 1 mark substitution, 1 mark correct value with units.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "GP-02",
+    "unit": "General Physics",
+    "subunit": "Energy, work & power",
+    "type": "numerical",
+    "prompt": "A 5.0 kg box is lifted vertically by 1.8 m. g=9.8 N/kg. Calculate the work done.",
+    "answer": 88.2,
+    "tolerance_abs": 0.5,
+    "units": "J",
+    "marks": 2,
+    "technique": [
+      "Work = m g h"
+    ],
+    "common_mistakes": [
+      "Using wrong g",
+      "Giving answer in N instead of J"
+    ],
+    "marking_scheme": "W = 5.0 × 9.8 × 1.8 = 88.2 J",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "TP-01",
+    "unit": "Thermal Physics",
+    "subunit": "Transfer of thermal energy",
+    "type": "short_text",
+    "prompt": "Name the main mode of heat transfer in a vacuum and briefly explain why.",
+    "keywords": [
+      "radiation",
+      "no particles",
+      "vacuum"
+    ],
+    "marks": 2,
+    "technique": [
+      "State 'radiation' and reason that no particles are needed"
+    ],
+    "common_mistakes": [
+      "Answering conduction or convection"
+    ],
+    "marking_scheme": "Radiation. It does not require particles, so it can occur in a vacuum.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "WV-01",
+    "unit": "Properties of Waves (Light & Sound)",
+    "subunit": "Light (reflection, refraction, lenses, critical angle)",
+    "type": "mcq",
+    "prompt": "Light passes from air (n=1.00) into glass (n=1.50). Which statement is correct?",
+    "options": [
+      "The light speeds up and bends away from the normal.",
+      "The light slows down and bends towards the normal.",
+      "The light speed is unchanged but bends towards the normal.",
+      "The light slows down and bends away from the normal."
+    ],
+    "answer": "The light slows down and bends towards the normal.",
+    "marks": 1,
+    "technique": [
+      "Recall n ∝ 1/speed; higher n → slower → toward normal"
+    ],
+    "common_mistakes": [
+      "Confusing direction of refraction at boundary"
+    ],
+    "marking_scheme": "From lower n to higher n: ray bends towards the normal.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "EM-01",
+    "unit": "Electricity & Magnetism",
+    "subunit": "Electrical quantities",
+    "type": "numerical",
+    "prompt": "A constant potential difference of 9.0 V produces a current of 0.30 A in a resistor. Calculate the resistance.",
+    "answer": 30.0,
+    "tolerance_abs": 0.5,
+    "units": "Ω",
+    "marks": 2,
+    "technique": [
+      "Use R = V / I"
+    ],
+    "common_mistakes": [
+      "Inverting I/V",
+      "Missing units"
+    ],
+    "marking_scheme": "R = 9.0 / 0.30 = 30 Ω",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "EM-02",
+    "unit": "Electricity & Magnetism",
+    "subunit": "Electric circuits",
+    "type": "short_text",
+    "prompt": "In a series circuit, how does the current compare at different points? Explain briefly.",
+    "keywords": [
+      "same",
+      "series"
+    ],
+    "marks": 2,
+    "technique": [
+      "State 'current is the same everywhere in series' + brief reason"
+    ],
+    "common_mistakes": [
+      "Confusing with parallel circuits"
+    ],
+    "marking_scheme": "The current is the same at all points in a series circuit.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "EM-03",
+    "unit": "Electricity & Magnetism",
+    "subunit": "Electromagnetic effects",
+    "type": "short_text",
+    "prompt": "State the principle of operation of a transformer in one sentence.",
+    "keywords": [
+      "electromagnetic induction",
+      "changing magnetic flux",
+      "ac"
+    ],
+    "marks": 2,
+    "technique": [
+      "Mention AC, changing flux, induced emf in secondary"
+    ],
+    "common_mistakes": [
+      "Describing DC operation"
+    ],
+    "marking_scheme": "A transformer uses electromagnetic induction: an AC in the primary creates a changing magnetic flux that induces an emf in the secondary.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "AP-01",
+    "unit": "Atomic Physics",
+    "subunit": "Radioactivity",
+    "type": "mcq",
+    "prompt": "Which radiation is most penetrating?",
+    "options": [
+      "Alpha (α)",
+      "Beta (β)",
+      "Gamma (γ)",
+      "They are all equal"
+    ],
+    "answer": "Gamma (γ)",
+    "marks": 1,
+    "technique": [
+      "Recall: α least, β medium, γ most penetrating"
+    ],
+    "common_mistakes": [
+      "Choosing beta"
+    ],
+    "marking_scheme": "γ is most penetrating.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "GP-03",
+    "unit": "General Physics",
+    "subunit": "Momentum",
+    "type": "numerical",
+    "prompt": "A 0.15 kg ball moving at 12 m/s is brought to rest in 0.050 s by a bat. Calculate the average force exerted by the bat.",
+    "answer": 36.0,
+    "tolerance_abs": 1.0,
+    "units": "N",
+    "marks": 3,
+    "technique": [
+      "Impulse = change in momentum = FΔt",
+      "F = m(v−u)/Δt"
+    ],
+    "common_mistakes": [
+      "Using wrong sign; forgetting divide by time"
+    ],
+    "marking_scheme": "Δp = 0 − 0.15×12 = −1.8 kg·m/s; |F| = 1.8/0.050 = 36 N",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "GP-04",
+    "unit": "General Physics",
+    "subunit": "Pressure",
+    "type": "numerical",
+    "prompt": "A 600 N box rests on a floor on an area of 0.40 m^2. Calculate the pressure on the floor.",
+    "answer": 1500.0,
+    "tolerance_abs": 5.0,
+    "units": "Pa",
+    "marks": 2,
+    "technique": [
+      "P = F / A"
+    ],
+    "common_mistakes": [
+      "Using mass instead of weight"
+    ],
+    "marking_scheme": "P = 600 / 0.40 = 1500 Pa",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "WV-02",
+    "unit": "Properties of Waves (Light & Sound)",
+    "subunit": "Sound",
+    "type": "short_text",
+    "prompt": "Does sound travel faster in air or in steel? State why in one phrase.",
+    "keywords": [
+      "steel",
+      "faster",
+      "particles closer",
+      "stiffer"
+    ],
+    "marks": 2,
+    "technique": [
+      "State medium comparison and reason"
+    ],
+    "common_mistakes": [
+      "Saying air is faster"
+    ],
+    "marking_scheme": "Steel; particles are much closer / stiffer medium → faster transmission.",
+    "source": "Past-paper style"
+  },
+  {
+    "id": "GP-05",
+    "unit": "General Physics",
+    "subunit": "Turning effects of forces",
+    "type": "numerical",
+    "prompt": "A 20 N force acts at 0.35 m from a pivot. Calculate the moment about the pivot.",
+    "answer": 7.0,
+    "tolerance_abs": 0.2,
+    "units": "N·m",
+    "marks": 2,
+    "technique": [
+      "Moment = F × d (perpendicular distance)"
+    ],
+    "common_mistakes": [
+      "Using wrong distance"
+    ],
+    "marking_scheme": "M = 20 × 0.35 = 7.0 N·m",
+    "source": "Past-paper style"
+  }
+]
