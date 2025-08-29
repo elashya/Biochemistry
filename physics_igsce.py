@@ -113,13 +113,18 @@ Coverage so far:
 Performance so far:
 {history_summary}
 
-Generate ONE exam-style question in JSON only.
+Generate ONE exam-style question in JSON only. 
+Vary the numbers, context, or wording each time. 
+Do NOT repeat previously asked questions exactly.
+
+IMPORTANT: Always output pure JSON, no extra text.
 """
 
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
+        # Force temperature=0.7 for more variety
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
         if not msgs.data:
@@ -148,7 +153,7 @@ Return ONLY JSON with awarded marks and feedback.
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
 
         if not msgs.data:
@@ -163,13 +168,14 @@ Return ONLY JSON with awarded marks and feedback.
 def reset_state():
     for k in ["quiz_started","q_index","score","marks_total","responses",
               "error_log","usage_counter","n_questions","selected_pairs",
-              "submitted","last_result"]:
+              "submitted","last_result","last_user_answer","current_q"]:
         st.session_state.pop(k, None)
 
 def render_header():
     st.title(APP_TITLE)
     st.caption("Adaptive mode: generates one question at a time, adjusting to performance.")
 
+# ---------------- Main ----------------
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📘")
     require_pin()
@@ -197,6 +203,7 @@ def main():
             if not selected_pairs:
                 st.error("Select at least one sub-unit.")
             else:
+                reset_state()
                 st.session_state.quiz_started = True
                 st.session_state.q_index = 0
                 st.session_state.score = 0
@@ -208,12 +215,17 @@ def main():
                 st.session_state.selected_pairs = selected_pairs
                 st.session_state.status_message = "🟡 Ready to generate first question"
                 st.session_state.submitted = False
+                # Generate the very first question
+                q = generate_single_question(st.session_state.selected_pairs, {}, st.session_state.usage_counter)
+                if q:
+                    st.session_state.current_q = q
                 st.rerun()
         return
 
     q_index = st.session_state.q_index
     n_questions = st.session_state.n_questions
 
+    # End of quiz
     if q_index >= n_questions:
         st.subheader("📊 Quiz Complete")
         st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
@@ -222,34 +234,31 @@ def main():
             st.rerun()
         return
 
-    if q_index >= len(st.session_state.responses):
-        st.session_state.status_message = "🟡 Generating next question..."
-        progress = {"responses": st.session_state.responses}
-        new_q = generate_single_question(st.session_state.selected_pairs, progress, st.session_state.usage_counter)
-        if new_q:
-            st.session_state.current_q = new_q
-            st.session_state.usage_counter[(new_q["unit"], new_q["subunit"])] += 1
-            st.session_state.status_message = f"✅ Generated question {q_index+1}"
+    q = st.session_state.get("current_q", None)
+    if not q:
+        st.session_state.status_message = "🟡 Generating question..."
+        q = generate_single_question(st.session_state.selected_pairs, {}, st.session_state.usage_counter)
+        if q:
+            st.session_state.current_q = q
         else:
             st.error("Failed to generate question.")
             return
 
-    q = st.session_state.current_q
     st.subheader(f"Question {q_index+1} of {n_questions}")
     st.write(f"**Sub-unit:** {q['subunit']} | **Marks:** {q.get('marks',1)}")
     st.write(q["prompt"])
 
     if q["type"] == "mcq":
-        user_answer = st.radio("Choose:", q.get("options", []))
+        user_answer = st.radio("Choose:", q.get("options", []), key=f"answer_{q_index}")
     elif q["type"] == "numerical":
-        user_answer = st.text_input(f"Your answer ({q.get('units','')})")
+        user_answer = st.text_input(f"Your answer ({q.get('units','')})", key=f"answer_{q_index}")
     else:
-        user_answer = st.text_area("Your answer")
+        user_answer = st.text_area("Your answer", key=f"answer_{q_index}")
 
-    # Ensure state exists
     if "submitted" not in st.session_state:
         st.session_state.submitted = False
 
+    # Submit Answer
     if not st.session_state.submitted:
         if st.button("✅ Submit Answer"):
             if not user_answer.strip():
@@ -272,23 +281,29 @@ def main():
         for f in feedback:
             st.markdown("- " + f)
 
-        st.session_state.score += awarded
-        st.session_state.marks_total += q.get("marks",1)
-        st.session_state.responses.append({
-            "index": q_index,
-            "unit": q["unit"],
-            "subunit": q["subunit"],
-            "marks": q.get("marks",1),
-            "awarded": awarded,
-            "correct": correct,
-            "user_answer": user_answer
-        })
-        if not correct:
-            st.session_state.error_log.append(f"{q['subunit']} | Q{q_index+1} | Ans: {user_answer}")
+        # Update score/log only once
+        if len(st.session_state.responses) <= q_index:
+            st.session_state.score += awarded
+            st.session_state.marks_total += q.get("marks",1)
+            st.session_state.responses.append({
+                "index": q_index,
+                "unit": q["unit"],
+                "subunit": q["subunit"],
+                "marks": q.get("marks",1),
+                "awarded": awarded,
+                "correct": correct,
+                "user_answer": user_answer
+            })
+            if not correct:
+                st.session_state.error_log.append(f"{q['subunit']} | Q{q_index+1} | Ans: {user_answer}")
 
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
             st.session_state.submitted = False
+            # Generate a new question for the next round
+            new_q = generate_single_question(st.session_state.selected_pairs, {}, st.session_state.usage_counter)
+            if new_q:
+                st.session_state.current_q = new_q
             st.rerun()
 
 if __name__ == "__main__":
