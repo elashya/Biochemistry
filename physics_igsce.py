@@ -166,6 +166,36 @@ Return ONLY JSON with:
     except Exception:
         return None
 
+# ---------------- Final Summary ----------------
+def generate_final_summary(responses):
+    client = _get_openai_client()
+    if client is None:
+        return None
+
+    prompt = f"""
+You are an IGCSE Physics (0625) examiner.
+Here are the student’s responses and grading details:
+{json.dumps(responses, indent=2)}
+
+Provide ONLY JSON with:
+- score: "X/Y and percentage"
+- strengths: list of 3 bullet points
+- weaknesses: list of 3 bullet points
+- study_hints: list of 3 bullet points
+- related_techniques: list of 3 exam tips or formulas
+"""
+    try:
+        thread = client.beta.threads.create()
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.3)
+        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+        if not msgs.data:
+            return None
+        content = extract_message_content(msgs.data[0])
+        return parse_json_from_content(content)
+    except Exception:
+        return None
+
 # ---------------- Helpers ----------------
 def reset_state():
     for k in ["quiz_started","q_index","score","marks_total","responses",
@@ -182,6 +212,15 @@ def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="📘")
     require_pin()
     render_header()
+
+    # Sidebar progress bar
+    with st.sidebar:
+        st.write("### 📊 Progress")
+        st.write(f"Score: {st.session_state.get('score',0)}/{st.session_state.get('marks_total',0)}")
+        if "error_log" in st.session_state:
+            st.write("### ❌ Error Log")
+            for e in st.session_state["error_log"]:
+                st.markdown("- " + e)
 
     if not st.session_state.get("quiz_started"):
         with st.form("config"):
@@ -203,6 +242,7 @@ def main():
                 st.session_state.score = 0
                 st.session_state.marks_total = 0
                 st.session_state.responses = []
+                st.session_state.error_log = []
                 st.session_state.n_questions = n_questions
                 st.session_state.selected_pairs = selected_pairs
                 q = generate_single_question(selected_pairs, {}, defaultdict(int))
@@ -217,6 +257,24 @@ def main():
     if q_index >= n_questions:
         st.subheader("📊 Quiz Complete")
         st.metric("Final Score", f"{st.session_state.score}/{st.session_state.marks_total}")
+
+        summary = generate_final_summary(st.session_state.responses)
+        if summary:
+            st.write("### 🌟 Performance Summary")
+            st.write(f"**Score:** {summary.get('score','')}")
+            st.write("**Strengths:**")
+            for s in summary.get("strengths", []):
+                st.markdown("- " + s)
+            st.write("**Weaknesses:**")
+            for w in summary.get("weaknesses", []):
+                st.markdown("- " + w)
+            st.write("**Study Hints:**")
+            for h in summary.get("study_hints", []):
+                st.markdown("- " + h)
+            st.write("**Related Techniques:**")
+            for t in summary.get("related_techniques", []):
+                st.markdown("- " + t)
+
         if st.button("🔁 Start again"):
             reset_state()
             st.rerun()
@@ -264,6 +322,8 @@ def main():
                 "marks": q.get("marks",1),
                 "correct": result.get("correct",False)
             })
+            if not result.get("correct", False):
+                st.session_state.error_log.append(f"Q{q_index+1}: {st.session_state.last_user_answer}")
 
         if st.button("➡️ Next"):
             st.session_state.q_index += 1
