@@ -65,6 +65,28 @@ def _get_openai_client():
     except Exception:
         return None
 
+def parse_json_from_content(content):
+    """Try to parse JSON from assistant content, handling fences or plain blocks."""
+    # Look for fenced JSON ```json ... ```
+    fence_match = re.search(r"```json(.*?)```", content, re.DOTALL)
+    if fence_match:
+        raw_json = fence_match.group(1).strip()
+    else:
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        raw_json = match.group(0) if match else None
+
+    if not raw_json:
+        st.error("Assistant did not return JSON. Raw output:")
+        st.code(content)
+        return None
+
+    try:
+        return json.loads(raw_json)
+    except Exception as e:
+        st.error(f"Failed to parse JSON: {e}")
+        st.code(raw_json)
+        return None
+
 def generate_single_question(selected_pairs, progress, usage_counter):
     """Generate ONE adaptive question from Assistant, respecting scope and balancing sub-units."""
     client = _get_openai_client()
@@ -122,8 +144,7 @@ JSON only, no prose.
         if not msgs.data:
             return None
         content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
-        match = re.search(r'\{.*\}', content, re.DOTALL)
-        return json.loads(match.group(0)) if match else None
+        return parse_json_from_content(content)
     except Exception as e:
         st.error(f"Error generating question: {e}")
         return None
@@ -162,8 +183,7 @@ Return JSON only:
         if not msgs.data:
             return None
         content = "".join([p.text.value for p in msgs.data[0].content if getattr(p, "type", "") == "text"])
-        match = re.search(r'\{.*\}', content, re.DOTALL)
-        return json.loads(match.group(0)) if match else None
+        return parse_json_from_content(content)
     except Exception:
         return None
 
