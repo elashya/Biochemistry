@@ -181,13 +181,23 @@ def reset_state():
         st.session_state.pop(k, None)
 
 def start_quiz(selected_pairs, n_questions, duration_min):
-    with st.spinner("Generating questions... please wait (up to 30s)"):
-        selected = generate_questions_from_assistant(selected_pairs, n_questions)
+    # Step 1: Immediately set status to "generating"
+    st.session_state.status_message = "🟡 Generating questions… please wait"
+    st.experimental_rerun()  # refresh sidebar so Sohail sees the message
 
+    # Step 2: Actually call the Assistant
+    selected = generate_questions_from_assistant(selected_pairs, n_questions)
+
+    # Step 3: If nothing came back → update status and stop
     if len(selected) == 0:
-        st.warning("No questions generated. Try different units/sub-units.")
+        st.session_state.status_message = "❌ Failed to generate questions"
+        st.experimental_rerun()
         return
 
+    # Step 4: If successful → update status
+    st.session_state.status_message = "✅ Questions ready!"
+
+    # Step 5: Continue with quiz state as usual
     st.session_state.quiz_started = True
     st.session_state.selected_qs = selected
     st.session_state.q_index = 0
@@ -198,6 +208,7 @@ def start_quiz(selected_pairs, n_questions, duration_min):
     st.session_state.duration_min = duration_min
     st.session_state.start_ts = time.time()
     st.session_state.end_ts = st.session_state.start_ts + duration_min*60
+
 
 def render_header():
     st.title(APP_TITLE)
@@ -277,6 +288,11 @@ def main():
             st.success("Assistant grading: ON")
         else:
             st.warning("Assistant grading: OFF (no secrets set)")
+    
+        # Show generation progress/status
+        if "status_message" in st.session_state:
+            st.info(st.session_state.status_message)
+
 
     # Config form
     if not st.session_state.get("quiz_started"):
