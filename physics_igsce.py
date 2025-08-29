@@ -54,7 +54,6 @@ def parse_json_from_content(content):
     else:
         match = re.search(r'(\[.*\]|\{.*\})', content, re.DOTALL)
         raw_json = match.group(0) if match else None
-
     if not raw_json:
         return None
     try:
@@ -65,8 +64,40 @@ def parse_json_from_content(content):
     except Exception:
         return None
 
+# ---------------- Solution Validation ----------------
+def validate_solution(question_json):
+    """Use assistant to recompute and correct the solution."""
+    client = _get_openai_client()
+    if client is None:
+        return question_json
+
+    prompt = f"""
+You are an IGCSE Physics (0625) examiner.
+Recalculate the correct solution for this question:
+
+Question: {question_json['prompt']}
+
+Return ONLY corrected JSON with all the same fields,
+but ensure the 'answer' field is the correct solution,
+and update 'units' if needed.
+"""
+
+    try:
+        thread = client.beta.threads.create()
+        client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0)
+        msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
+        if not msgs.data:
+            return question_json
+        content = extract_message_content(msgs.data[0])
+        corrected = parse_json_from_content(content)
+        return corrected if corrected else question_json
+    except Exception:
+        return question_json
+
 # ---------------- Question Generation ----------------
 def generate_single_question(selected_pairs, progress, usage_counter):
+    """Generate a new question and immediately validate its solution."""
     client = _get_openai_client()
     if client is None:
         return None
@@ -78,26 +109,25 @@ Student selected ONLY these sub-units:
 {subunits_info}
 
 Generate ONE exam-style question in JSON only.
-Always include fields: id, unit, subunit, type, prompt, marks, units (if any).
-Provide a plausible correct answer in 'answer', but note: it may later be revalidated.
+Fields: id, unit, subunit, type, prompt, marks, units, answer (initial guess).
 """
 
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7
-        )
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.7)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
-
         if not msgs.data:
             return None
         content = extract_message_content(msgs.data[0])
-        return parse_json_from_content(content)
+        raw_q = parse_json_from_content(content)
+        if raw_q:
+            return validate_solution(raw_q)  # ✅ ensure corrected answer
+        return None
     except Exception:
         return None
 
-# ---------------- Grading (FIXED) ----------------
+# ---------------- Grading ----------------
 def assistant_grade(question, user_answer, max_marks):
     client = _get_openai_client()
     if client is None:
@@ -127,9 +157,7 @@ Return ONLY JSON with:
     try:
         thread = client.beta.threads.create()
         client.beta.threads.messages.create(thread_id=thread.id, role="user", content=prompt)
-        client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.3
-        )
+        client.beta.threads.runs.create_and_poll(thread_id=thread.id, assistant_id=ASSISTANT_ID, temperature=0.3)
         msgs = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
         if not msgs.data:
             return None
